@@ -2308,9 +2308,10 @@
     }
 
     // 行内记号：==高亮== → 黄底橙下划线，**强调** → 靛蓝色加粗
+    // [\s\S]+? 允许高亮内容里出现单个 =（数学式 ==f(x)=A== 是常态）
     function renderInline(escaped) {
       return escaped
-        .replace(/==([^=]+)==/g, '<mark class="hl">$1</mark>')
+        .replace(/==([\s\S]+?)==/g, '<mark class="hl">$1</mark>')
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     }
 
