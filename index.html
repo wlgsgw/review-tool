@@ -1594,6 +1594,5049 @@
     .fc-done-title { font-size: 17px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
     .fc-done-stat { font-size: 14px; color: #334155; margin-bottom: 6px; }
     .fc-done-tip { font-size: 13px; color: #64748b; line-height: 1.7; }
+
+    /* ═══════ 知识点关系图（力导向网络）═══════ */
+    .rel-block { margin-top: 16px; }
+
+    .rel-svg-wrap {
+      overflow-x: auto;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .rel-svg { display: block; width: 100%; min-width: 640px; height: auto; }
+
+    .rel-edge {
+      stroke: #94a3b8;
+      stroke-width: 1.6;
+      transition: opacity 0.15s;
+    }
+
+    .rel-edge-label {
+      font-size: 11px;
+      fill: #0e7490;
+      font-weight: 600;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: #f8fafc;
+      stroke-width: 3px;
+      transition: opacity 0.15s;
+    }
+
+    .rel-node { cursor: default; }
+    .rel-node rect { transition: fill 0.15s; }
+    .rel-node:hover rect { fill: #6366f1; }
+    .rel-node text {
+      fill: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <nav id="section-bar">
+      <button type="button" class="section-btn active" data-section="review">📚 复习</button>
+      <button type="button" class="section-btn" data-section="mistake">❌ 错题本</button>
+      <button type="button" class="section-btn" data-section="library">🗂 资料库</button>
+    </nav>
+
+    <header>
+      <h1>📚 <span class="grad">复习神器</span></h1>
+      <p>上传 PPT 课件，AI 生成带重点标注、示意图和思维导图的复习材料</p>
+    </header>
+
+    <nav id="subject-bar" class="subject-bar" aria-label="学科切换"></nav>
+
+    <div id="stats-bar" class="stats-bar">
+      <span id="stat-time">⏱ 今日 0 秒</span>
+      <span id="stat-gen">📚 累计 0 份</span>
+      <span id="stat-quiz">✍️ 自测 0 题</span>
+      <span id="stat-mistake">❌ 错题 0</span>
+      <span id="stat-streak">🔥 连续 0 天</span>
+    </div>
+
+    <main>
+      <div id="review-app">
+      <!-- ═══ 学习仪表盘（Agent 2）：默认收起，点头部展开；集成者经 renderDashboard() 刷新 ═══ -->
+      <div class="card" id="dashboard-card">
+        <button type="button" id="dash-head" class="dash-head" aria-expanded="false" aria-controls="dash-body">
+          <span class="dash-title">📊 学习仪表盘</span>
+          <span id="dash-summary" class="dash-summary">…</span>
+          <span class="dash-chevron" aria-hidden="true">▸</span>
+        </button>
+        <div id="dash-body" class="dash-body" hidden>
+          <!-- 最近 7 天学习时长条形图（纯 div/CSS） -->
+          <div class="dash-block-title">📅 最近 7 天学习时长</div>
+          <div id="dash-chart" class="dash-chart"></div>
+          <p id="dash-chart-empty" class="dash-chart-empty" hidden>🌵 最近 7 天还没有学习记录，生成复习材料并停留阅读就会开始计时</p>
+          <!-- 总览四格 -->
+          <div class="dash-grid">
+            <div class="dash-cell">
+              <div id="dash-total" class="dash-cell-value">—</div>
+              <div class="dash-cell-label">⏱ 总学习时长</div>
+            </div>
+            <div class="dash-cell">
+              <div id="dash-days" class="dash-cell-value">—</div>
+              <div class="dash-cell-label">📆 覆盖学习天数</div>
+            </div>
+            <div class="dash-cell">
+              <div id="dash-quiz" class="dash-cell-value">—</div>
+              <div class="dash-cell-label">✍️ 自测正确率</div>
+            </div>
+            <div class="dash-cell">
+              <div id="dash-mistake" class="dash-cell-value">—</div>
+              <div class="dash-cell-label">❌ 累计错题</div>
+            </div>
+          </div>
+          <!-- 最常用学科 -->
+          <div class="dash-subject-row">
+            <span class="dash-subject-label">🧠 最常复习</span>
+            <span id="dash-subject" class="dash-subject">…</span>
+          </div>
+        </div>
+      </div><!-- /#dashboard-card -->
+      <section class="card" id="input-card">
+        <label id="step1-label">📂 第一步：上传课件</label>
+        <div id="drop-zone" class="drop-zone" role="button" tabindex="0">
+          📂 <strong>点击选择</strong> 或把 <strong>.pptx 课件 / .docx 文档</strong> 拖到这里
+        </div>
+        <input type="file" id="file-input" accept=".pptx,.docx" hidden />
+        <p id="file-status" class="file-status" hidden></p>
+        <p class="or-divider">或者直接粘贴文字</p>
+        <textarea id="input-text" placeholder="也可以直接把课件文字、错题题目粘贴到这里……"></textarea>
+        <div class="editor-meta">
+          <span id="char-count">0 字</span>
+          <span>Ctrl + Enter 快速生成</span>
+        </div>
+        <button id="generate-btn" class="generate-btn">第二步：生成复习讲解</button>
+      </section>
+
+      <section class="card" id="ai-settings">
+        <label>⚙️ AI 设置（Key 只存在你自己的浏览器里）</label>
+        <div class="setting-row">
+          <input type="password" id="api-key" class="text-input" placeholder="粘贴你的 BigModel API Key" autocomplete="off" />
+          <button id="toggle-key" class="mini-btn" type="button">显示</button>
+        </div>
+        <div class="setting-row">
+          <input type="text" id="model-name" class="text-input" placeholder="模型名（默认 glm-5）" />
+          <button id="save-settings" class="mini-btn" type="button">保存设置</button>
+        </div>
+        <p class="setting-hint">
+          没有 Key？登录 <strong>open.bigmodel.cn</strong> → 「API 密钥」页面 → 创建并复制到这里。
+          如果提示模型不存在，去 docs.bigmodel.cn 的「模型概览」查最新名字。
+        </p>
+        <p id="settings-status" class="file-status" hidden></p>
+      </section>
+
+      <section class="card">
+        <div class="result-head">
+          <label id="result-label">第三步：AI 复习材料</label>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <details id="history-box" class="history">
+              <summary class="mini-btn">🕘 历史</summary>
+              <div id="history-list" class="history-list"></div>
+            </details>
+            <button id="print-btn" class="mini-btn" type="button" hidden>🖨 存PDF</button>
+            <button id="illu-btn" class="mini-btn" type="button" hidden>🎨 生成示意图</button>
+            <button id="copy-btn" class="mini-btn" type="button" hidden>复制</button>
+          </div>
+        </div>
+        <div id="result-box">
+          <div class="result-placeholder">
+            <div style="font-size: 34px; margin-bottom: 10px;">✨</div>
+            填好上方设置、备好内容，<br />点「生成复习讲解」——<strong>重点标注 · 示意图 · 思维导图</strong>都会出现在这里
+          </div>
+        </div>
+      </section>
+      </div><!-- /#review-app -->
+
+      <div id="mistake-app" hidden>
+        <!-- ═══ 卡一：拍下错题（Agent A 拍摄裁剪模块）═══ -->
+        <div id="mistake-capture-card" class="card">
+          <h2 class="mistake-card-title">📸 拍下错题</h2>
+          <p id="mistake-cam-status" class="mistake-cam-status" aria-live="polite">👆 点击下方按钮，拍照或从相册选择错题图片</p>
+          <div id="mistake-cam-entry" class="mistake-cam-section mistake-cam-entry">
+            <button id="mistake-cam-open" class="mistake-cam-btn" type="button">📸 打开摄像头</button>
+            <button id="mistake-cam-album" class="mistake-cam-btn mistake-cam-btn-ghost" type="button">🖼 从相册选择</button>
+            <input id="mistake-cam-file" class="mistake-cam-file" type="file" accept="image/*">
+          </div>
+          <div id="mistake-cam-camera" class="mistake-cam-section mistake-cam-camera" hidden>
+            <video id="mistake-cam-video" class="mistake-cam-video" autoplay playsinline muted></video>
+            <div class="mistake-cam-row">
+              <button id="mistake-cam-shoot" class="mistake-cam-btn mistake-cam-btn-shoot" type="button">📷 拍照</button>
+              <button id="mistake-cam-close" class="mistake-cam-btn mistake-cam-btn-ghost" type="button">✖️ 关闭</button>
+            </div>
+          </div>
+          <div id="mistake-cam-crop" class="mistake-cam-section mistake-cam-crop" hidden>
+            <p class="mistake-cam-tip">✍️ 按住拖动，框出要保存的题目区域</p>
+            <div id="mistake-cam-wrap" class="mistake-cam-wrap">
+              <canvas id="mistake-cam-canvas" class="mistake-cam-canvas"></canvas>
+            </div>
+            <div class="mistake-cam-row">
+              <button id="mistake-cam-confirm" class="mistake-cam-btn" type="button" disabled>✂️ 确认裁剪</button>
+              <button id="mistake-cam-retake" class="mistake-cam-btn mistake-cam-btn-ghost" type="button">🔄 重拍</button>
+            </div>
+          </div>
+          <div id="mistake-cam-preview" class="mistake-cam-section mistake-cam-preview" hidden>
+            <img id="mistake-cam-preview-img" class="mistake-cam-preview-img" alt="裁剪后的错题图片">
+            <p class="mistake-cam-tip">✅ 裁剪完成！识别或分析时会使用这张图</p>
+            <div class="mistake-cam-row">
+              <button id="mistake-cam-reset" class="mistake-cam-btn mistake-cam-btn-ghost" type="button">🔄 重新选图</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ 卡二：AI 分析错题（Agent B / C 的接线目标）═══ -->
+        <div class="card">
+          <h2 class="mistake-card-title">🧠 AI 分析错题</h2>
+          <textarea id="mistake-question" class="mistake-textarea" rows="4"
+            placeholder="把错题题目粘贴或输入到这里（也可先拍照，再点「识别图片文字」自动填入）"></textarea>
+          <div class="mistake-actions">
+            <button type="button" id="mistake-recognize-btn" class="mistake-btn secondary">🔍 识别图片文字</button>
+            <button type="button" id="mistake-analyze-btn" class="mistake-btn primary">🧠 分析此题</button>
+          </div>
+          <p class="mistake-hint">💡 选中分析内容，拖到右下角可联网搜索拓展</p>
+          <div id="mistake-analysis-output" class="mistake-output"></div>
+          <button type="button" id="mistake-save-btn" class="mistake-btn primary">💾 收入错题本</button>
+        </div>
+
+        <!-- ═══ 卡三：我的错题本 ═══ -->
+        <div class="card">
+          <h2 class="mistake-card-title">🗂 我的错题本</h2>
+          <div id="mistake-list"></div>
+        </div>
+      </div>
+
+      <!-- ═══ 资料库：复习/错题自动归档，可导出本地文件、导入合并、拖动排序（Agent 1 增强：标签/批量/排序模式）═══ -->
+      <div id="library-app" hidden>
+        <div class="card">
+          <h2 class="mistake-card-title">🗂 资料库 <span id="library-count" style="font-size: 13px; font-weight: 500; color: #94a3b8;"></span></h2>
+          <p class="mistake-hint" style="margin-top: 0;">
+            每份生成的复习材料和收入的错题都会自动归档到这里（累计不删）。
+            可导出成一个本地文件随身携带，换设备时导入即可合并继续积累。
+          </p>
+          <div class="mistake-actions">
+            <button type="button" id="library-export-btn" class="mistake-btn primary">📤 导出到本地文件</button>
+            <button type="button" id="library-import-btn" class="mistake-btn secondary">📥 导入本地文件</button>
+            <button type="button" id="flashcard-open-btn" class="mistake-btn secondary">🎴 闪卡复习</button>
+            <input type="file" id="library-import-file" accept=".json,application/json" hidden />
+          </div>
+          <p id="library-status" class="mistake-hint"></p>
+          <input type="search" id="library-search" class="text-input" placeholder="🔍 搜索标题或内容关键词…" style="width: 100%; margin-top: 12px;" />
+          <div id="library-tag-chips" class="libx-tagfilter" hidden></div>
+        </div>
+        <div class="card">
+          <h2 class="mistake-card-title">📚 我的资料模块 <span id="library-sort-hint" style="font-size: 12px; font-weight: 500; color: #94a3b8;">拖 ⠿ 排序，或用 ↑↓</span></h2>
+          <div class="libx-toolbar">
+            <div id="library-sort-group" class="libx-sort-group" role="group" aria-label="排序方式">
+              <button type="button" class="libx-sort-btn" data-sort="custom">✋ 自定义</button>
+              <button type="button" class="libx-sort-btn" data-sort="new">🕐 最新优先</button>
+              <button type="button" class="libx-sort-btn" data-sort="old">🕐 最早优先</button>
+              <button type="button" class="libx-sort-btn" data-sort="type">📑 按类型</button>
+            </div>
+            <button type="button" id="library-batch-btn" class="libx-batch-toggle">✓ 批量管理</button>
+          </div>
+          <div id="library-batch-bar" class="libx-batch-bar" hidden>
+            <button type="button" id="library-batch-all" class="libx-batch-act">☑ 全选</button>
+            <button type="button" id="library-batch-del" class="libx-batch-act danger" disabled>🗑 删除所选</button>
+            <button type="button" id="library-batch-export" class="libx-batch-act" disabled>📤 导出所选</button>
+            <span id="library-batch-count" class="libx-batch-count">已选 0 份</span>
+          </div>
+          <div id="library-list"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer>30 天建造计划 · 复习神器 v2.3 · 新增：资料库增强 · 学习仪表盘 · 闪卡复习</footer>
+  </div>
+
+  <div id="drag-overlay" hidden><div>📂 松开鼠标，上传课件</div></div>
+  <div id="drag-search-zone" hidden>🔍 松开手指，联网搜索</div>
+  <div id="quiz-mask" class="quiz-mask" hidden>
+    <div class="quiz-card" id="quiz-card"></div>
+  </div>
+  <!-- ═══ 闪卡复习弹窗（独立于自测弹窗，fc- 前缀，单例不叠加）═══ -->
+  <div id="flashcard-mask" class="fc-mask" hidden>
+    <div class="fc-card" role="dialog" aria-modal="true" aria-label="闪卡复习">
+      <button type="button" id="fc-close-btn" class="fc-close" title="退出闪卡复习">✕</button>
+      <div id="fc-progress" class="fc-progress"></div>
+      <div id="fc-stage" class="fc-stage"></div>
+    </div>
+  </div>
+  <button id="to-top" class="mini-btn" type="button" hidden>⬆️ 顶部</button>
+
+  <script>
+    // ================= PPTX 解析（零依赖，PPTX 本质是 ZIP 包） =================
+    const DRAWINGML_NS = "http://schemas.openxmlformats.org/drawingml/2006/main";
+
+    async function inflateRaw(raw) {
+      const stream = new Blob([raw]).stream()
+        .pipeThrough(new DecompressionStream("deflate-raw"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    // 通用 ZIP 读取：按文件名模式挑条目并解压成文本（PPTX/DOCX 都是 ZIP 包）
+    async function readZipXmlEntries(bytes, pattern) {
+      const view = new DataView(bytes.buffer);
+
+      let eocd = -1;
+      const lowest = Math.max(0, bytes.length - 66000);
+      for (let i = bytes.length - 22; i >= lowest; i--) {
+        if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+      }
+      if (eocd < 0) throw new Error("找不到 ZIP 目录，这可能不是有效的 Office 文件");
+
+      const entryCount = view.getUint16(eocd + 10, true);
+      let ptr = view.getUint32(eocd + 16, true);
+      const found = [];
+
+      for (let n = 0; n < entryCount; n++) {
+        if (view.getUint32(ptr, true) !== 0x02014b50) throw new Error("ZIP 目录损坏");
+        const method = view.getUint16(ptr + 10, true);
+        const compressedSize = view.getUint32(ptr + 20, true);
+        const nameLen = view.getUint16(ptr + 28, true);
+        const extraLen = view.getUint16(ptr + 30, true);
+        const commentLen = view.getUint16(ptr + 32, true);
+        const localOffset = view.getUint32(ptr + 42, true);
+        const name = new TextDecoder().decode(bytes.subarray(ptr + 46, ptr + 46 + nameLen));
+        ptr += 46 + nameLen + extraLen + commentLen;
+
+        if (!pattern.test(name)) continue;
+
+        const localNameLen = view.getUint16(localOffset + 26, true);
+        const localExtraLen = view.getUint16(localOffset + 28, true);
+        const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+        const raw = bytes.subarray(dataStart, dataStart + compressedSize);
+
+        let xmlBytes;
+        if (method === 0) xmlBytes = raw;
+        else if (method === 8) xmlBytes = await inflateRaw(raw);
+        else throw new Error("遇到了不支持的压缩方式（method " + method + "）");
+
+        found.push({ name, xml: new TextDecoder().decode(xmlBytes) });
+      }
+      return found;
+    }
+
+    async function extractPptxText(file) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const slides = await readZipXmlEntries(bytes, /^ppt\/slides\/slide\d+\.xml$/i);
+
+      const slideNum = (s) => Number(/slide(\d+)\.xml$/i.exec(s.name)[1]);
+      slides.sort((a, b) => slideNum(a) - slideNum(b));
+      if (!slides.length) throw new Error("没有找到幻灯片内容");
+
+      const parser = new DOMParser();
+      const parts = [];
+      for (const s of slides) {
+        const num = slideNum(s);
+        const doc = parser.parseFromString(s.xml, "application/xml");
+        if (doc.getElementsByTagName("parsererror").length) {
+          parts.push("【第 " + num + " 页】（这一页解析失败，已跳过）");
+          continue;
+        }
+        const lines = [];
+        for (const p of doc.getElementsByTagNameNS(DRAWINGML_NS, "p")) {
+          let line = "";
+          for (const t of p.getElementsByTagNameNS(DRAWINGML_NS, "t")) line += t.textContent;
+          if (line.trim()) lines.push(line.trim());
+        }
+        parts.push("【第 " + num + " 页】" + (lines.length ? "\n" + lines.join("\n") : "（本页没有文字）"));
+      }
+      return parts.join("\n\n");
+    }
+
+    const WORDML_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+    async function extractDocxText(file) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const docs = await readZipXmlEntries(bytes, /^word\/document\.xml$/i);
+      if (!docs.length) throw new Error("没有找到文档正文");
+      const doc = new DOMParser().parseFromString(docs[0].xml, "application/xml");
+      if (doc.getElementsByTagName("parsererror").length) throw new Error("文档正文解析失败");
+
+      // <w:p> 是一个段落（表格单元格里也有），<w:t> 是段落里的文字块
+      const paras = [];
+      for (const p of doc.getElementsByTagNameNS(WORDML_NS, "p")) {
+        let line = "";
+        for (const t of p.getElementsByTagNameNS(WORDML_NS, "t")) line += t.textContent;
+        if (line.trim()) paras.push(line.trim());
+      }
+      if (!paras.length) throw new Error("文档里没有提取到文字");
+      return paras.join("\n");
+    }
+
+    // ---------- 上传交互：点击选择 + 拖拽 ----------
+    const dropZone = document.getElementById("drop-zone");
+    const fileInput = document.getElementById("file-input");
+    const statusEl = document.getElementById("file-status");
+    const inputText = document.getElementById("input-text");
+
+    function setStatus(message, kind) {
+      statusEl.textContent = message;
+      statusEl.className = "file-status" + (kind ? " " + kind : "");
+      statusEl.hidden = false;
+    }
+
+    async function readFile(file) {
+      const isPptx = /\.pptx$/i.test(file.name);
+      const isDocx = /\.docx$/i.test(file.name);
+      if (!isPptx && !isDocx) {
+        setStatus("请选择 .pptx 或 .docx 文件（PDF 的读取排在后面的迭代里）", "error");
+        return;
+      }
+      setStatus("正在读取《" + file.name + "》……");
+      try {
+        const text = isPptx ? await extractPptxText(file) : await extractDocxText(file);
+        inputText.value = text;
+        updateCharCount();
+        const pages = (text.match(/【第 \d+ 页】/g) || []).length;
+        const chars = text.replace(/\s/g, "").length;
+        const scale = isPptx ? pages + " 页" : text.split("\n").length + " 段";
+        setStatus("✅ 已读取《" + file.name + "》：" + scale + " · 约 " + chars + " 字。文字已填入下面的框，可以继续手动补充或修改", "ok");
+      } catch (err) {
+        setStatus("❌ 读取失败：" + err.message + "。也可以直接把课件文字粘贴到下面的框里", "error");
+      }
+    }
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+    });
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files[0]) readFile(fileInput.files[0]);
+      fileInput.value = "";
+    });
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragging"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging"));
+
+    // 全页拖拽：文件拖到页面任何位置都能上传，遮罩给出明确提示
+    const dragOverlay = document.getElementById("drag-overlay");
+    let dragDepth = 0;
+    window.addEventListener("dragenter", (e) => {
+      if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+      dragDepth++;
+      dragOverlay.hidden = false;
+    });
+    window.addEventListener("dragleave", () => {
+      if (dragDepth > 0 && --dragDepth === 0) dragOverlay.hidden = true;
+    });
+    window.addEventListener("dragover", (e) => e.preventDefault());
+    window.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      dragOverlay.hidden = true;
+      dropZone.classList.remove("dragging");
+      const f = e.dataTransfer?.files?.[0];
+      if (f) readFile(f);
+    });
+
+    // 字数实时统计（12000 字是单次生成的内容上限）
+    function updateCharCount() {
+      const n = inputText.value.length;
+      const el = document.getElementById("char-count");
+      el.textContent = n > 12000 ? n + " 字 · 超出部分不参与生成" : n + " 字";
+      el.classList.toggle("over", n > 12000);
+    }
+    inputText.addEventListener("input", updateCharCount);
+    updateCharCount();
+
+    // ================= AI 设置：Key 存 localStorage，绝不离开本机 =================
+    const apiKeyInput = document.getElementById("api-key");
+    const modelInput = document.getElementById("model-name");
+    const settingsStatus = document.getElementById("settings-status");
+
+    function setSettingsStatus(message, kind) {
+      settingsStatus.textContent = message;
+      settingsStatus.className = "file-status" + (kind ? " " + kind : "");
+      settingsStatus.hidden = false;
+    }
+
+    apiKeyInput.value = localStorage.getItem("fuxi.apiKey") || "";
+    modelInput.value = localStorage.getItem("fuxi.model") || "";
+    if (apiKeyInput.value) setSettingsStatus("✅ Key 已保存在本机，可直接生成", "ok");
+
+    document.getElementById("save-settings").addEventListener("click", () => {
+      localStorage.setItem("fuxi.apiKey", apiKeyInput.value.trim());
+      localStorage.setItem("fuxi.model", modelInput.value.trim());
+      setSettingsStatus("✅ 已保存到本机浏览器", "ok");
+    });
+    apiKeyInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("save-settings").click();
+    });
+    document.getElementById("toggle-key").addEventListener("click", (e) => {
+      const hiddenNow = apiKeyInput.type === "password";
+      apiKeyInput.type = hiddenNow ? "text" : "password";
+      e.target.textContent = hiddenNow ? "隐藏" : "显示";
+    });
+
+    // ================= 学科目录：顶部一键切换，AI 换上学科专属教法 =================
+    // 想加新学科？往这个数组里 push 一项就行，其余全自动。
+    const SUBJECTS = [
+      { id: "math", name: "数学", emoji: "📐", guide: "这是数学学科的复习材料。公式推导要写清每一步的理由；注意定义域和适用条件；例题给出完整解题过程。" },
+      { id: "physics", name: "物理", emoji: "⚛️", guide: "这是物理学科的复习材料。公式要注明每个量的物理意义和单位；强调模型的适用条件；用生活化的例子辅助理解。" },
+      { id: "chem", name: "化学", emoji: "🧪", guide: "这是化学学科的复习材料。方程式要配平并注明反应条件；重点做易混淆概念的对比辨析。" },
+      { id: "bio", name: "生物", emoji: "🧬", guide: "这是生物学科的复习材料。术语要准确；代谢、分裂等过程性知识用分步流程梳理。" },
+      { id: "english", name: "英语", emoji: "📖", guide: "这是英语学科的复习材料。关键词汇和例句用英文并附中文翻译；语法点给出正误例句对照。" },
+      { id: "cs", name: "计算机", emoji: "💻", guide: "这是计算机学科的复习材料。代码示例要简短可读；解释概念先打比方再上术语。" },
+    ];
+    const SECTION_EMOJI = { 核心考点: "🎯", 重点讲解: "💡", 自测题: "✍️", 答案与解析: "✅" };
+
+    let currentSubject =
+      SUBJECTS.find((s) => s.id === localStorage.getItem("fuxi.subject")) || SUBJECTS[0];
+
+    function pulseLabel(el) {
+      el.classList.remove("label-pulse");
+      void el.offsetWidth; // 强制回流，让动画可以重复触发
+      el.classList.add("label-pulse");
+    }
+
+    function applySubjectToUI() {
+      document.getElementById("step1-label").textContent =
+        "📂 第一步：上传" + currentSubject.emoji + " " + currentSubject.name + "课件";
+      document.getElementById("result-label").textContent =
+        "第三步：" + currentSubject.emoji + " " + currentSubject.name + " · AI 复习材料";
+      inputText.placeholder = "或直接粘贴" + currentSubject.name + "课件文字、错题、笔记……";
+      pulseLabel(document.getElementById("step1-label"));
+      pulseLabel(document.getElementById("result-label"));
+      document.querySelectorAll(".subject-pill").forEach((p) => {
+        const on = p.dataset.id === currentSubject.id;
+        p.classList.toggle("active", on);
+        p.setAttribute("aria-pressed", String(on));
+      });
+    }
+
+    (function renderSubjectBar() {
+      const bar = document.getElementById("subject-bar");
+      for (const s of SUBJECTS) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "subject-pill";
+        b.dataset.id = s.id;
+        b.textContent = s.emoji + " " + s.name;
+        b.addEventListener("click", () => {
+          currentSubject = s;
+          localStorage.setItem("fuxi.subject", s.id);
+          applySubjectToUI();
+        });
+        bar.appendChild(b);
+      }
+    })();
+    applySubjectToUI();
+
+    // ================= AI 大脑 =================
+    // 提示词是这个项目的灵魂。我们约定一套「记号」，AI 用记号输出，
+    // 前端把记号渲染成颜色块和思维导图——比让 AI 直接写 HTML 安全可控得多。
+    const SYSTEM_PROMPT = [
+      "你是一位擅长帮大学生考前复习的助教，根据用户提供的课件或错题内容生成复习材料。",
+      "你的输出会被程序渲染，必须严格遵守以下记号约定：",
+      "一、章节标题独占一行，用【】包裹，固定为：【核心考点】【重点讲解】【自测题】【答案与解析】，最后必须有【知识框架】。",
+      "二、【重点讲解】里每个知识点块：第一行以「◆ 重点：」开头，接一个简短标题；下面的段落解释它。",
+      "三、特别容易做错的点，单独一行以「！」开头；解题技巧或口诀，单独一行以「★」开头。",
+      "四、最关键必须记住的结论用 ==双等号== 包裹；需要强调的术语用 **双星号** 包裹。",
+      "五、自测题用 1. 2. 3. 编号且编号必须连续；【答案与解析】里每题以「第N题：」开头，题号必须与自测题一一对应。",
+      "六、【知识框架】用缩进列表画知识树：每行以「- 」开头，子层级用两个空格缩进，只覆盖学科知识的主干和分支，层级不超过 3 层；每条必须是 4-10 字的名词短语（如「ε-δ 定义」「间断点分类」），禁止完整句子、禁止句尾标点、禁止「的概念」「的作用」这类空泛表述，不要任何多余说明文字。",
+      "内容规则：只依据给定内容，不编造；公式用普通文本；全程中文。"
+    ].join("\n");
+
+    const IMAGE_MODEL = "cogview-4"; // 支持在图里写中文；若报模型不存在或想省钱可换 cogview-3-flash
+    const API_BASE = "https://open.bigmodel.cn/api/paas/v4";
+
+    const generateBtn = document.getElementById("generate-btn");
+    const resultBox = document.getElementById("result-box");
+    const copyBtn = document.getElementById("copy-btn");
+    const illuBtn = document.getElementById("illu-btn");
+    const printBtn = document.getElementById("print-btn");
+    let lastRaw = "";
+
+    function showResult(node) {
+      resultBox.innerHTML = "";
+      resultBox.appendChild(node);
+    }
+
+    async function generate() {
+      if (generateBtn.disabled) return; // 生成进行中：屏蔽快捷键等重复触发
+      const content = inputText.value.trim();
+      if (!content) {
+        setStatus("请先上传课件或粘贴文字，AI 才有米下锅", "error");
+        inputText.focus();
+        return;
+      }
+      const key = apiKeyInput.value.trim();
+      if (!key) {
+        setSettingsStatus("请先在下方粘贴 API Key 并点「保存设置」", "error");
+        document.getElementById("ai-settings").scrollIntoView({ behavior: "smooth", block: "center" });
+        apiKeyInput.focus();
+        return;
+      }
+      const model = modelInput.value.trim() || "glm-5";
+      const subject = currentSubject; // 生成那一刻锁定学科，之后切换不影响本次结果
+
+      generateBtn.disabled = true;
+      generateBtn.textContent = "AI 正在生成……";
+      copyBtn.hidden = true;
+      illuBtn.hidden = true;
+
+      const loading = document.createElement("div");
+      loading.className = "loading-box";
+      loading.innerHTML = '<div class="spinner"></div>';
+      const hint = document.createElement("div");
+      loading.appendChild(hint);
+      if (content.length > 12000) {
+        const note = document.createElement("div");
+        note.className = "file-status";
+        note.style.color = "#94a3b8";
+        note.textContent = "内容较长，本次使用前 12000 字（原文共 " + content.length + " 字）";
+        loading.appendChild(note);
+      }
+      showResult(loading);
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        hint.textContent = subject.emoji + " AI 正在以" + subject.name + "老师的视角整理复习材料……已用 " + Math.round((Date.now() - t0) / 1000) + " 秒";
+      }, 1000);
+
+      try {
+        const res = await fetch(API_BASE + "/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key,
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT + "\n" + subject.guide },
+              { role: "user", content: "【学科】" + subject.name + "\n\n这是我整理的课件/错题内容：\n\n" + content.slice(0, 12000) + "\n\n请按规则生成复习材料。" },
+            ],
+            temperature: 0.6,
+          }),
+        });
+
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("API Key 无效或已过期，请回设置区检查是否复制完整");
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error?.message || ("接口返回了 " + res.status + "，稍后再试"));
+        }
+
+        const data = await res.json();
+        const answer = data.choices?.[0]?.message?.content;
+        if (!answer) throw new Error("AI 返回了空内容，请再点一次生成");
+
+        lastRaw = answer;
+        showResult(buildReview(answer));
+        copyBtn.hidden = false;
+        illuBtn.hidden = false;
+        printBtn.hidden = false;
+        saveHistoryEntry({ t: Date.now(), subjectId: subject.id, name: subject.name, emoji: subject.emoji, raw: answer });
+        renderHistoryMenu();
+        stats.generations++;
+        saveStats();
+        renderStats();
+        LibraryStore.add({
+          id: "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          type: "review", t: Date.now(),
+          subjectId: subject.id, name: subject.name, emoji: subject.emoji,
+          text: answer,
+        });
+      } catch (err) {
+        const box = document.createElement("div");
+        box.className = "file-status error";
+        box.style.fontSize = "14px";
+        const msg = document.createElement("div");
+        msg.textContent = err.name === "TypeError" && err.message.includes("fetch")
+          ? "网络请求失败：请检查网络连接后重试"
+          : "❌ " + err.message;
+        const retry = document.createElement("button");
+        retry.className = "mini-btn";
+        retry.textContent = "🔄 重试";
+        retry.style.marginTop = "10px";
+        retry.addEventListener("click", generate);
+        box.appendChild(msg);
+        box.appendChild(retry);
+        showResult(box);
+      } finally {
+        clearInterval(timer);
+        generateBtn.disabled = false;
+        generateBtn.textContent = "第二步：生成复习讲解";
+      }
+    }
+
+    generateBtn.addEventListener("click", generate);
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        if (!document.getElementById("quiz-mask").hidden) return; // 自测进行中不打断
+        e.preventDefault();
+        generate();
+      }
+    });
+    copyBtn.addEventListener("click", async () => {
+      if (!lastRaw) return;
+      await navigator.clipboard.writeText(lastRaw);
+      copyBtn.textContent = "已复制 ✓";
+      setTimeout(() => { copyBtn.textContent = "复制"; }, 1500);
+    });
+    printBtn.addEventListener("click", () => window.print());
+
+    // ================= 历史记录：材料存在本机，刷新不丢 =================
+    const HISTORY_KEY = "fuxi.history";
+    const historyList = document.getElementById("history-list");
+    const historyBox = document.getElementById("history-box");
+
+    function loadHistory() {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+      catch { return []; }
+    }
+
+    function saveHistoryEntry(entry) {
+      const list = loadHistory();
+      list.unshift(entry);
+      while (list.length > 5) list.pop();
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    }
+
+    function renderHistoryMenu() {
+      historyList.innerHTML = "";
+      const list = loadHistory();
+      if (!list.length) {
+        const empty = document.createElement("div");
+        empty.className = "hist-empty";
+        empty.textContent = "还没有历史记录，生成一次就会自动存到这里";
+        historyList.appendChild(empty);
+        return;
+      }
+      for (const item of list) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "hist-item";
+        const time = new Date(item.t);
+        const pad = (n) => String(n).padStart(2, "0");
+        b.textContent = item.emoji + " " + item.name + " · " +
+          (time.getMonth() + 1) + "月" + time.getDate() + "日 " +
+          pad(time.getHours()) + ":" + pad(time.getMinutes()) + " · " +
+          item.raw.replace(/\s/g, "").length + " 字";
+        b.addEventListener("click", () => {
+          lastRaw = item.raw;
+          showResult(buildReview(item.raw));
+          copyBtn.hidden = false;
+          illuBtn.hidden = false;
+          printBtn.hidden = false;
+          historyBox.open = false;
+        });
+        historyList.appendChild(b);
+      }
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "hist-clear";
+      clear.textContent = "清空历史";
+      clear.addEventListener("click", () => {
+        localStorage.removeItem(HISTORY_KEY);
+        renderHistoryMenu();
+      });
+      historyList.appendChild(clear);
+    }
+    renderHistoryMenu();
+
+    // ================= 渲染层：把记号变成颜色和图形 =================
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    // 行内记号：==高亮== → 黄底橙下划线，**强调** → 靛蓝色加粗
+    // [\s\S]+? 允许高亮内容里出现单个 =（数学式 ==f(x)=A== 是常态）
+    function renderInline(escaped) {
+      return escaped
+        .replace(/==([\s\S]+?)==/g, '<mark class="hl">$1</mark>')
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    }
+
+    function appendBlock(parent, kp, cls, text) {
+      const d = document.createElement("div");
+      d.className = cls;
+      d.innerHTML = renderInline(escapeHtml(text));
+      (kp || parent).appendChild(d);
+    }
+
+    function buildReview(raw) {
+      // 三页签：📖 知识点 / ✍️ 习题 / 🗺️ 思维导图 —— 复习和做题分开
+      const root = document.createElement("div");
+      const tabs = document.createElement("div");
+      tabs.className = "result-tabs";
+      const panes = {};
+      for (const [id, label] of [["knowledge", "📖 知识点"], ["exercise", "✍️ 习题"], ["map", "🗺️ 思维导图"]]) {
+        const t = document.createElement("button");
+        t.type = "button";
+        t.className = "result-tab";
+        t.dataset.tab = id;
+        t.textContent = label;
+        const p = document.createElement("div");
+        p.className = "result-pane";
+        p.dataset.pane = id;
+        tabs.appendChild(t);
+        panes[id] = p;
+      }
+      function setActiveTab(id) {
+        localStorage.setItem("fuxi.tab", id);
+        tabs.querySelectorAll(".result-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === id));
+        for (const p of Object.values(panes)) p.hidden = p.dataset.pane !== id;
+      }
+      tabs.addEventListener("click", (e) => {
+        const btn = e.target.closest(".result-tab");
+        if (btn) setActiveTab(btn.dataset.tab);
+      });
+      root.appendChild(tabs);
+      for (const p of Object.values(panes)) root.appendChild(p);
+
+      let pane = panes.knowledge; // 当前内容归入的页签
+      let kp = null;        // 当前「重点块」，普通段落会归入它
+      let listDiv = null;   // 连续列表行合并
+      let inMap = false;    // 是否已进入【知识框架】采集模式
+      let answersBody = null; // 非空时，后续内容块全部归入「答案折叠区」
+      const mapLines = [];
+
+      for (const rawLine of raw.split("\n")) {
+        const line = rawLine.replace(/\r$/, "");
+        const trimmed = line.trim();
+        if (!trimmed) { kp = null; listDiv = null; continue; }
+
+        const sec = /^【(.+?)】\s*$/.exec(trimmed);
+        if (sec) {
+          kp = null; listDiv = null; answersBody = null;
+          if (sec[1] === "知识框架") { inMap = true; continue; }
+          inMap = false;
+          pane = sec[1] === "自测题" || sec[1] === "答案与解析" ? panes.exercise : panes.knowledge;
+          if (sec[1] === "答案与解析") {
+            // 学习科学：先做题再对答案，所以答案默认折叠
+            answersBody = document.createElement("div");
+            answersBody.className = "answers-body";
+            const det = document.createElement("details");
+            det.className = "answers";
+            const sum = document.createElement("summary");
+            sum.textContent = (SECTION_EMOJI[sec[1]] || "📌") + " " + sec[1] + "（先自测，再点开对答案）";
+            det.appendChild(sum);
+            det.appendChild(answersBody);
+            pane.appendChild(det);
+            continue;
+          }
+          const h = document.createElement("h2");
+          h.className = "sec-title";
+          h.textContent = (SECTION_EMOJI[sec[1]] || "📌") + " " + sec[1];
+          pane.appendChild(h);
+          continue;
+        }
+
+        if (inMap) { mapLines.push(line); continue; }
+
+        const kpM = /^◆\s*(?:重点：|重点:)?\s*(.+)$/.exec(trimmed);
+        if (kpM) {
+          kp = document.createElement("div");
+          kp.className = "kp";
+          const t = document.createElement("div");
+          t.className = "kp-title";
+          t.innerHTML = "◆ " + renderInline(escapeHtml(kpM[1]));
+          kp.appendChild(t);
+          (answersBody || pane).appendChild(kp);
+          listDiv = null;
+          continue;
+        }
+
+        const warnM = /^[!！]\s*(?:易错：|易错:)?\s*(.+)$/.exec(trimmed);
+        if (warnM) { appendBlock(answersBody || pane, kp, "warn", "⚠ 易错　" + warnM[1]); listDiv = null; continue; }
+
+        const tipM = /^★\s*(?:技巧：)?\s*(.+)$/.exec(trimmed);
+        if (tipM) { appendBlock(answersBody || pane, kp, "tip", "★ 技巧　" + tipM[1]); listDiv = null; continue; }
+
+        const listM = /^([-•]|\d+[.、)])(?:\s*(.*))?$/.exec(trimmed);
+        if (listM) {
+          if (!listDiv) {
+            listDiv = document.createElement("div");
+            (kp || answersBody || pane).appendChild(listDiv);
+          }
+          const item = document.createElement("div");
+          const body = renderInline(escapeHtml(listM[2] || ""));
+          if (/^\d/.test(listM[1])) {
+            // 编号列表：保留原始题号，方便「第几题」对照
+            item.className = "list-line ordered";
+            item.innerHTML = '<span class="lnum">' + listM[1] + '</span> ' + body;
+          } else {
+            item.className = "list-line";
+            item.innerHTML = body;
+          }
+          listDiv.appendChild(item);
+          continue;
+        }
+
+        listDiv = null;
+        const p = document.createElement("p");
+        p.className = "para";
+        p.innerHTML = renderInline(escapeHtml(trimmed));
+        (kp || answersBody || pane).appendChild(p);
+      }
+
+      if (mapLines.length >= 2) {
+        const nodes = pruneOutline(mapLines);
+        if (nodes.length >= 2) {
+          // 原有框架 + 联网拓展，并排摆放；拓展块由按钮触发后补入
+          const mapsRow = document.createElement("div");
+          mapsRow.className = "maps-row";
+          mapsRow.appendChild(makeMapBlock("🗺️ 知识框架总览（可左右拖动）", outlineToTree(nodes, "知识框架"), "base"));
+
+          const outlineSnapshot = mapLines.slice();
+          const block = mapsRow.querySelector(".map-block");
+          const tools = document.createElement("div");
+          tools.className = "map-tools";
+          const status = document.createElement("div");
+          status.className = "map-status";
+          const expandBtn = document.createElement("button");
+          expandBtn.className = "quiz-btn";
+          expandBtn.textContent = "🌐 联网拓展这张导图";
+          expandBtn.addEventListener("click", async () => {
+            const key = apiKeyInput.value.trim();
+            if (!key) {
+              setSettingsStatus("联网拓展也需要先填 API Key", "error");
+              document.getElementById("ai-settings").scrollIntoView({ behavior: "smooth", block: "center" });
+              return;
+            }
+            if (mapsRow.querySelector(".map-block.expansion")) return;
+            expandBtn.disabled = true;
+            status.classList.remove("error");
+            status.textContent = "🌐 正在联网搜索相关知识点并整理……约需 20-60 秒";
+            try {
+              const model = modelInput.value.trim() || "glm-5";
+              const res = await fetch(API_BASE + "/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": "Bearer " + key,
+                },
+                body: JSON.stringify({
+                  model,
+                  messages: [
+                    { role: "system", content: "你是学科拓展助手。用户给你一份知识框架大纲，你通过联网搜索，找出与它强相关、值得延伸学习的知识点，整理成拓展大纲。" },
+                    { role: "user", content: "现有知识框架大纲：\n\n" + outlineSnapshot.join("\n") + "\n\n请输出 5-8 条相关的拓展知识点，格式为缩进列表（每行以「- 」开头，子层级两个空格缩进，层级不超过 2 层，每条 4-10 字名词短语，不要句子和标点结尾），只输出大纲本身，不要任何解释。" },
+                  ],
+                  tools: [{ type: "web_search", web_search: { enable: true } }],
+                  temperature: 0.6,
+                }),
+              });
+              if (!res.ok) {
+                if (res.status === 401) throw new Error("API Key 无效");
+                throw new Error("接口返回 " + res.status);
+              }
+              const data = await res.json();
+              const answer = data.choices?.[0]?.message?.content || "";
+              const expandNodes = pruneOutline(answer.split("\n"));
+              if (expandNodes.length < 2) throw new Error("AI 没有返回有效的拓展大纲，可稍后再试");
+              const block = makeMapBlock("🌐 互联网拓展（AI 联网补充）", outlineToTree(expandNodes, "🌐 拓展"), "web");
+              block.classList.add("expansion");
+              mapsRow.appendChild(block);
+              expandBtn.hidden = true;
+              status.textContent = "";
+            } catch (err) {
+              status.textContent = "🌐 拓展失败：" + err.message;
+              status.classList.add("error");
+              expandBtn.disabled = false;
+            }
+          });
+          tools.appendChild(expandBtn);
+          tools.appendChild(status);
+          block.appendChild(tools);
+          panes.map.appendChild(mapsRow);
+
+          // 知识点关系图：AI 从知识框架提炼学习依赖网络，渲染在导图下方
+          if (nodes.length >= 3) {
+            const outlineSnapshot = mapLines.slice();
+            const relBlock = document.createElement("div");
+            relBlock.className = "rel-block";
+            const relStatus = document.createElement("div");
+            relStatus.className = "map-status";
+            const relBtn = document.createElement("button");
+            relBtn.className = "quiz-btn";
+            relBtn.textContent = "🕸 生成知识点关系图";
+            relBtn.addEventListener("click", () => generateRelations(relBtn, relStatus, nodes, outlineSnapshot, relBlock));
+            relBlock.appendChild(relBtn);
+            relBlock.appendChild(relStatus);
+            panes.map.appendChild(relBlock);
+          }
+        }
+      }
+
+      for (const p of Object.values(panes)) {
+        if (!p.childNodes.length) {
+          const empty = document.createElement("div");
+          empty.className = "pane-empty";
+          empty.textContent = "这份材料里没有这一部分";
+          p.appendChild(empty);
+        }
+      }
+      const savedTab = localStorage.getItem("fuxi.tab");
+      setActiveTab(panes[savedTab] ? savedTab : "knowledge");
+      appendQuizButton(panes.exercise, extractQuiz(raw));
+      return root;
+    }
+
+    // ================= 错题分析渲染：无页签的轻量富文本（同一套记号规范） =================
+    function renderRichInto(container, raw) {
+      let kp = null;
+      let listDiv = null;
+      for (const rawLine of raw.split("\n")) {
+        const trimmed = rawLine.replace(/\r$/, "").trim();
+        if (!trimmed) { kp = null; listDiv = null; continue; }
+        const sec = /^【(.+?)】\s*$/.exec(trimmed);
+        if (sec) {
+          const h = document.createElement("h2");
+          h.className = "sec-title";
+          h.textContent = (SECTION_EMOJI[sec[1]] || "📌") + " " + sec[1];
+          container.appendChild(h);
+          kp = null; listDiv = null;
+          continue;
+        }
+        const kpM = /^◆\s*(?:重点：|重点:)?\s*(.+)$/.exec(trimmed);
+        if (kpM) {
+          kp = document.createElement("div");
+          kp.className = "kp";
+          const t = document.createElement("div");
+          t.className = "kp-title";
+          t.innerHTML = "◆ " + renderInline(escapeHtml(kpM[1]));
+          kp.appendChild(t);
+          container.appendChild(kp);
+          listDiv = null;
+          continue;
+        }
+        const warnM = /^[!！]\s*(?:易错：|易错:)?\s*(.+)$/.exec(trimmed);
+        if (warnM) { appendBlock(container, kp, "warn", "⚠ 易错　" + warnM[1]); listDiv = null; continue; }
+        const tipM = /^★\s*(?:技巧：)?\s*(.+)$/.exec(trimmed);
+        if (tipM) { appendBlock(container, kp, "tip", "★ 技巧　" + tipM[1]); listDiv = null; continue; }
+        const listM = /^([-•]|\d+[.、)])(?:\s*(.*))?$/.exec(trimmed);
+        if (listM) {
+          if (!listDiv) { listDiv = document.createElement("div"); container.appendChild(listDiv); }
+          const item = document.createElement("div");
+          const body = renderInline(escapeHtml(listM[2] || ""));
+          if (/^\d/.test(listM[1])) {
+            item.className = "list-line ordered";
+            item.innerHTML = '<span class="lnum">' + listM[1] + '</span> ' + body;
+          } else {
+            item.className = "list-line";
+            item.innerHTML = body;
+          }
+          listDiv.appendChild(item);
+          continue;
+        }
+        listDiv = null;
+        const p = document.createElement("p");
+        p.className = "para";
+        p.innerHTML = renderInline(escapeHtml(trimmed));
+        (kp || container).appendChild(p);
+      }
+    }
+
+    // ================= 习题抽取：把自测题和解析按题号配对 =================
+    function extractQuiz(raw) {
+      let mode = "";
+      const questions = [];
+      const answers = [];
+      for (const rawLine of raw.split("\n")) {
+        const line = rawLine.replace(/\r$/, "").trim();
+        const sec = /^【(.+?)】\s*$/.exec(line);
+        if (sec) { mode = sec[1]; continue; }
+        if (mode === "自测题") {
+          const m = /^(\d+)[.、)]\s*(.+)$/.exec(line);
+          if (m) questions.push({ n: Number(m[1]), q: m[2].trim() });
+        } else if (mode === "答案与解析") {
+          const m = /^第(\d+)题[：:]\s*(.*)$/.exec(line);
+          if (m) answers.push({ n: Number(m[1]), text: m[2].trim() });
+          else if (answers.length && line) answers[answers.length - 1].text += (answers[answers.length - 1].text ? " " : "") + line;
+        }
+      }
+      return questions
+        .map((q) => ({ ...q, a: (answers.find((a) => a.n === q.n) || {}).text || "（AI 没有给出这题的解析）" }))
+        .filter((q) => q.q);
+    }
+
+    // ================= 自测模式：逐题闯关 =================
+    const quizMask = document.getElementById("quiz-mask");
+    const quizCard = document.getElementById("quiz-card");
+    let quiz = null;
+
+    function openQuiz(list) {
+      quiz = { list, idx: 0, correct: 0, showAnswer: false };
+      quizMask.hidden = false;
+      renderQuiz();
+    }
+    function closeQuiz() { quizMask.hidden = true; quiz = null; }
+
+    function renderQuiz() {
+      quizCard.innerHTML = "";
+      const close = document.createElement("button");
+      close.className = "quiz-close";
+      close.textContent = "✕";
+      close.title = "退出自测";
+      close.addEventListener("click", closeQuiz);
+      quizCard.appendChild(close);
+
+      const prog = document.createElement("div");
+      prog.className = "quiz-progress";
+      prog.textContent = "第 " + (quiz.idx + 1) + " / " + quiz.list.length + " 题 · 已答对 " + quiz.correct + " 题";
+      quizCard.appendChild(prog);
+
+      const q = document.createElement("div");
+      q.className = "quiz-q";
+      q.textContent = quiz.idx + 1 + ". " + quiz.list[quiz.idx].q;
+      quizCard.appendChild(q);
+
+      const btns = document.createElement("div");
+      btns.className = "quiz-btns";
+      if (quiz.showAnswer) {
+        const a = document.createElement("div");
+        a.className = "quiz-a";
+        a.textContent = quiz.list[quiz.idx].a;
+        quizCard.appendChild(a);
+        const good = document.createElement("button");
+        good.className = "quiz-btn good";
+        good.textContent = "✅ 会了";
+        good.addEventListener("click", () => answerQuiz(true));
+        const bad = document.createElement("button");
+        bad.className = "quiz-btn bad";
+        bad.textContent = "❌ 不会";
+        bad.addEventListener("click", () => answerQuiz(false));
+        btns.appendChild(good);
+        btns.appendChild(bad);
+      } else {
+        const show = document.createElement("button");
+        show.className = "quiz-btn primary";
+        show.textContent = "显示答案";
+        show.addEventListener("click", () => { quiz.showAnswer = true; renderQuiz(); });
+        btns.appendChild(show);
+      }
+      quizCard.appendChild(btns);
+    }
+
+    function answerQuiz(gotIt) {
+      stats.quizTotal++;
+      if (gotIt) { stats.quizCorrect++; quiz.correct++; }
+      saveStats();
+      renderStats();
+      quiz.idx++;
+      quiz.showAnswer = false;
+      if (quiz.idx >= quiz.list.length) renderQuizDone();
+      else renderQuiz();
+    }
+
+    function renderQuizDone() {
+      quizCard.innerHTML = "";
+      const pct = Math.round((quiz.correct / quiz.list.length) * 100);
+      const title = document.createElement("div");
+      title.className = "quiz-q";
+      title.textContent = "🎉 自测完成！答对 " + quiz.correct + " / " + quiz.list.length + " 题（" + pct + "%）";
+      const tip = document.createElement("div");
+      tip.className = "quiz-a";
+      tip.textContent = pct >= 80
+        ? "掌握得不错！可以换个学科或换份课件继续。"
+        : "把答错的题对应的考点，回到「📖 知识点」页签再看一遍，然后重新自测一次。";
+      const btns = document.createElement("div");
+      btns.className = "quiz-btns";
+      const again = document.createElement("button");
+      again.className = "quiz-btn primary";
+      again.textContent = "再来一遍";
+      again.addEventListener("click", () => { quiz.idx = 0; quiz.correct = 0; quiz.showAnswer = false; renderQuiz(); });
+      const close = document.createElement("button");
+      close.className = "quiz-btn";
+      close.textContent = "关闭";
+      close.addEventListener("click", closeQuiz);
+      btns.appendChild(again);
+      btns.appendChild(close);
+      quizCard.appendChild(title);
+      quizCard.appendChild(tip);
+      quizCard.appendChild(btns);
+    }
+
+    quizMask.addEventListener("click", (e) => { if (e.target === quizMask) closeQuiz(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !quizMask.hidden) closeQuiz(); });
+
+    function appendQuizButton(pane, list) {
+      if (!list.length) return;
+      const bar = document.createElement("div");
+      bar.className = "quiz-launch";
+      const b = document.createElement("button");
+      b.className = "quiz-btn primary";
+      b.textContent = "🎯 开始自测（" + list.length + " 题）";
+      b.addEventListener("click", () => openQuiz(list));
+      bar.appendChild(b);
+      pane.insertBefore(bar, pane.firstChild);
+    }
+
+    // ================= 学习档案：时长与练习数据，全部存本机 =================
+    const STATS_KEY = "fuxi.stats";
+    let stats = loadStats();
+
+    function loadStats() {
+      try {
+        const s = JSON.parse(localStorage.getItem(STATS_KEY)) || {};
+        return { byDay: s.byDay || {}, generations: s.generations || 0, quizTotal: s.quizTotal || 0, quizCorrect: s.quizCorrect || 0, mistakes: s.mistakes || 0 };
+      } catch {
+        return { byDay: {}, generations: 0, quizTotal: 0, quizCorrect: 0, mistakes: 0 };
+      }
+    }
+    function saveStats() { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); }
+    function todayKey(offset) {
+      const d = new Date(Date.now() - (offset || 0) * 86400000);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+    for (const k of Object.keys(stats.byDay)) {
+      if (k < todayKey(60)) delete stats.byDay[k]; // 只保留最近 60 天
+    }
+
+    let unsavedSeconds = 0;
+    setInterval(() => {
+      // 学习时长只在「有材料在看」且「页面在前台」时累计
+      if (document.visibilityState !== "visible" || !lastRaw) return;
+      const key = todayKey();
+      stats.byDay[key] = (stats.byDay[key] || 0) + 1;
+      unsavedSeconds++;
+      if (unsavedSeconds >= 5) { unsavedSeconds = 0; saveStats(); }
+      renderStats();
+      renderDashboard();
+    }, 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") { saveStats(); renderStats(); }
+    });
+    window.addEventListener("beforeunload", saveStats);
+
+    function calcStreak() {
+      let offset = (stats.byDay[todayKey()] || 0) > 0 ? 0 : 1; // 今天还没学就从昨天起算
+      let streak = 0;
+      while ((stats.byDay[todayKey(offset + streak)] || 0) > 0) streak++;
+      return streak;
+    }
+    function renderStats() {
+      const secs = stats.byDay[todayKey()] || 0;
+      document.getElementById("stat-time").textContent = "⏱ 今日 " + (secs >= 60 ? Math.round(secs / 60) + " 分钟" : secs + " 秒");
+      document.getElementById("stat-gen").textContent = "📚 累计 " + stats.generations + " 份";
+      document.getElementById("stat-quiz").textContent = "✍️ 自测 " + stats.quizTotal + " 题";
+      document.getElementById("stat-mistake").textContent = "❌ 错题 " + (stats.mistakes || 0);
+      document.getElementById("stat-streak").textContent = "🔥 连续 " + calcStreak() + " 天";
+    }
+    renderStats();
+
+    // ---------- 思维导图：缩进大纲 → 清洗 → 树 → SVG ----------
+    const MAP_PALETTES = {
+      base: {
+        nodes: [["#4f46e5", "#ffffff"], ["#e0e7ff", "#3730a3"], ["#f1f5f9", "#334155"]],
+        edge: "#c7d2fe",
+      },
+      web: {
+        nodes: [["#0891b2", "#ffffff"], ["#cffafe", "#155e75"], ["#ecfeff", "#155e75"]],
+        edge: "#67e8f9",
+      },
+    };
+
+    // 大纲清洗：剔除不适合做导图节点的内容（长句、标点、重复、空泛行）
+    function pruneOutline(lines) {
+      const seen = new Set();
+      const out = [];
+      for (const l of lines) {
+        const m = /^(\s*)[-•]?\s*(.*?)\s*$/.exec(l.replace(/\r$/, ""));
+        if (!m || !m[2] || /^【/.test(m[2])) continue;
+        const text = m[2].replace(/[。；;，,．.]+$/, "").trim();
+        if (!text || text.length > 16) continue;        // 太长的是句子，不是节点
+        if (/[。！？!?]/.test(text)) continue;          // 完整句子不进导图
+        if (seen.has(text)) continue;
+        seen.add(text);
+        out.push({ depth: Math.floor(m[1].replace(/\t/g, "  ").length / 2), text });
+        if (out.length >= 24) break;                    // 节点总量上限，保持精炼
+      }
+      return out;
+    }
+
+    function outlineToTree(nodes, rootLabel) {
+      if (!nodes.length) return null;
+      const base = nodes[0].depth;
+      nodes.forEach((n) => { n.depth -= base; });
+
+      const forest = [];
+      const stack = [];
+      let lastDepth = -1;
+      for (const n of nodes) {
+        const d = Math.min(Math.max(n.depth, 0), lastDepth + 1);
+        const node = { text: n.text, children: [] };
+        while (stack.length && stack[stack.length - 1].depth >= d) stack.pop();
+        if (d === 0 || !stack.length) { forest.push(node); stack.length = 0; stack.push({ node, depth: d }); }
+        else { stack[stack.length - 1].node.children.push(node); stack.push({ node, depth: d }); }
+        lastDepth = d;
+      }
+      return forest.length === 1 ? forest[0] : { text: rootLabel || "知识框架", children: forest };
+    }
+
+    function makeMapBlock(caption, tree, paletteName) {
+      const wrap = document.createElement("div");
+      wrap.className = "map-block";
+      const cap = document.createElement("div");
+      cap.className = "map-caption";
+      cap.textContent = caption;
+      const scroll = document.createElement("div");
+      scroll.className = "mindmap-scroll";
+      scroll.appendChild(renderMindmap(tree, paletteName));
+      wrap.appendChild(cap);
+      wrap.appendChild(scroll);
+      return wrap;
+    }
+
+    function renderMindmap(tree, paletteName) {
+      const theme = MAP_PALETTES[paletteName] || MAP_PALETTES.base;
+      const palette = theme.nodes;
+      const FONT = "13px 'PingFang SC','Microsoft YaHei',sans-serif";
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = FONT;
+      const PADX = 12, ROWH = 42, GAPX = 52;
+
+      (function measure(n) {
+        n.w = Math.ceil(ctx.measureText(n.text).width) + PADX * 2;
+        n.children.forEach(measure);
+      })(tree);
+
+      const maxW = [];
+      (function collect(n, d) {
+        maxW[d] = Math.max(maxW[d] || 0, n.w);
+        n.children.forEach((c) => collect(c, d + 1));
+      })(tree, 0);
+
+      const xs = [];
+      let x = 0;
+      for (let d = 0; d < maxW.length; d++) { xs[d] = x; x += maxW[d] + GAPX; }
+
+      let cursor = 0;
+      (function place(n, d) {
+        n.d = d;
+        if (!n.children.length) { n.cy = cursor * ROWH + ROWH / 2; cursor++; }
+        else {
+          n.children.forEach((c) => place(c, d + 1));
+          n.cy = (n.children[0].cy + n.children[n.children.length - 1].cy) / 2;
+        }
+      })(tree, 0);
+
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(NS, "svg");
+      const W = xs[maxW.length - 1] + maxW[maxW.length - 1];
+      const H = cursor * ROWH;
+      svg.setAttribute("width", W);
+      svg.setAttribute("height", H);
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      svg.setAttribute("role", "img");
+
+      (function edges(n) {
+        for (const c of n.children) {
+          const p = document.createElementNS(NS, "path");
+          const x1 = xs[n.d] + n.w, y1 = n.cy, x2 = xs[c.d], y2 = c.cy;
+          const mx = (x1 + x2) / 2;
+          p.setAttribute("d", "M " + x1 + " " + y1 + " C " + mx + " " + y1 + ", " + mx + " " + y2 + ", " + x2 + " " + y2);
+          p.setAttribute("stroke", theme.edge);
+          p.setAttribute("fill", "none");
+          p.setAttribute("stroke-width", "1.6");
+          svg.appendChild(p);
+          edges(c);
+        }
+      })(tree);
+
+      (function nodes(n) {
+        const [bg, fg] = palette[Math.min(n.d, palette.length - 1)];
+        const r = document.createElementNS(NS, "rect");
+        r.setAttribute("x", xs[n.d]);
+        r.setAttribute("y", n.cy - 15);
+        r.setAttribute("width", n.w);
+        r.setAttribute("height", 30);
+        r.setAttribute("rx", 8);
+        r.setAttribute("fill", bg);
+        if (n.d > 0) r.setAttribute("stroke", "#c7d2fe");
+        const t = document.createElementNS(NS, "text");
+        t.setAttribute("x", xs[n.d] + PADX);
+        t.setAttribute("y", n.cy + 4.5);
+        t.setAttribute("font-size", "13");
+        t.setAttribute("fill", fg);
+        t.setAttribute("font-family", "'PingFang SC','Microsoft YaHei',sans-serif");
+        t.textContent = n.text;
+        const g = document.createElementNS(NS, "g");
+        g.appendChild(r);
+        g.appendChild(t);
+        svg.appendChild(g);
+        n.children.forEach(nodes);
+      })(tree);
+
+      return svg;
+    }
+
+    // ---------- 知识点关系图：AI 提炼学习依赖 → 力导向网络图 ----------
+    // 关系行解析：「A -> B | 关系说明」，节点名做逐字与包含两级容错
+    function parseRelations(raw, nodeNames) {
+      const edges = [];
+      const matchName = (input) => {
+        const s = input.trim();
+        if (nodeNames.includes(s)) return s;
+        const hit = nodeNames.find((n) => n.includes(s) || s.includes(n));
+        return hit || null;
+      };
+      for (const rawLine of raw.split("\n")) {
+        const line = rawLine.replace(/\r$/, "").trim().replace(/^\d+[.、]\s*/, "");
+        if (!line || /^【/.test(line)) continue;
+        const m = /^(.+?)\s*(?:→|->)\s*(.+?)(?:\s*[|｜]\s*(.*))?$/.exec(line);
+        if (!m) continue;
+        const from = matchName(m[1]);
+        const to = matchName(m[2]);
+        if (!from || !to || from === to) continue;
+        if (edges.some((e) => e.from === from && e.to === to)) continue;
+        edges.push({ from, to, label: (m[3] || "关联").trim().slice(0, 8) });
+        if (edges.length >= 14) break;
+      }
+      return edges;
+    }
+
+    // 力导向网络图：斥力 + 边引力 + 向心力，迭代后绘制成 SVG
+    function renderRelationGraph(container, edges) {
+      const nodeNames = [];
+      const seen = new Set();
+      for (const e of edges) {
+        for (const n of [e.from, e.to]) {
+          if (!seen.has(n)) { seen.add(n); nodeNames.push(n); }
+        }
+      }
+
+      const W = 760, H = 520;
+      const pos = new Map();
+      nodeNames.forEach((n, i) => {
+        const a = (i / nodeNames.length) * Math.PI * 2 - Math.PI / 2;
+        pos.set(n, { x: W / 2 + 190 * Math.cos(a), y: H / 2 + 190 * Math.sin(a) });
+      });
+
+      const dist = (a, b) => Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      for (let iter = 0; iter < 320; iter++) {
+        const k = 0.9 - iter * 0.0025;
+        for (let i = 0; i < nodeNames.length; i++) {
+          for (let j = i + 1; j < nodeNames.length; j++) {
+            const a = pos.get(nodeNames[i]);
+            const b = pos.get(nodeNames[j]);
+            const d = dist(a, b);
+            const f = (3200 / (d * d)) * k * 8;
+            const dx = ((a.x - b.x) / d) * f;
+            const dy = ((a.y - b.y) / d) * f;
+            a.x += dx; a.y += dy;
+            b.x -= dx; b.y -= dy;
+          }
+        }
+        for (const e of edges) {
+          const a = pos.get(e.from);
+          const b = pos.get(e.to);
+          const d = dist(a, b);
+          const f = ((d - 170) / d) * 0.06 * k;
+          const dx = (b.x - a.x) * f;
+          const dy = (b.y - a.y) * f;
+          a.x += dx; a.y += dy;
+          b.x -= dx; b.y -= dy;
+        }
+        for (const n of nodeNames) {
+          const p = pos.get(n);
+          p.x += (W / 2 - p.x) * 0.012;
+          p.y += (H / 2 - p.y) * 0.012;
+          p.x = Math.max(75, Math.min(W - 75, p.x));
+          p.y = Math.max(48, Math.min(H - 48, p.y));
+        }
+      }
+
+      const NS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      svg.classList.add("rel-svg");
+
+      const defs = document.createElementNS(NS, "defs");
+      defs.innerHTML =
+        '<marker id="rel-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/></marker>';
+      svg.appendChild(defs);
+
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = "12px 'PingFang SC','Microsoft YaHei',sans-serif";
+      const nodeWidth = (text) => Math.max(58, Math.ceil(ctx.measureText(text).width) + 26);
+
+      const edgeEls = [];
+      for (const e of edges) {
+        const a = pos.get(e.from);
+        const b = pos.get(e.to);
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("x1", a.x);
+        line.setAttribute("y1", a.y);
+        line.setAttribute("x2", b.x);
+        line.setAttribute("y2", b.y);
+        line.setAttribute("class", "rel-edge");
+        line.setAttribute("marker-end", "url(#rel-arrow)");
+        const label = document.createElementNS(NS, "text");
+        label.setAttribute("x", mx);
+        label.setAttribute("y", my - 5);
+        label.setAttribute("class", "rel-edge-label");
+        label.textContent = e.label;
+        svg.appendChild(line);
+        svg.appendChild(label);
+        edgeEls.push({ line, label, from: e.from, to: e.to });
+      }
+
+      for (const n of nodeNames) {
+        const p = pos.get(n);
+        const w = nodeWidth(n);
+        const g = document.createElementNS(NS, "g");
+        g.classList.add("rel-node");
+        const rect = document.createElementNS(NS, "rect");
+        rect.setAttribute("x", p.x - w / 2);
+        rect.setAttribute("y", p.y - 15);
+        rect.setAttribute("width", w);
+        rect.setAttribute("height", 30);
+        rect.setAttribute("rx", 10);
+        rect.setAttribute("fill", "#4f46e5");
+        const text = document.createElementNS(NS, "text");
+        text.setAttribute("x", p.x);
+        text.setAttribute("y", p.y + 1);
+        text.textContent = n;
+        g.appendChild(rect);
+        g.appendChild(text);
+        // 悬浮节点：高亮与它相连的连线，其余淡出
+        g.addEventListener("mouseenter", () => {
+          for (const ee of edgeEls) {
+            const active = ee.from === n || ee.to === n;
+            ee.line.style.opacity = active ? "1" : "0.1";
+            ee.label.style.opacity = active ? "1" : "0.06";
+          }
+        });
+        g.addEventListener("mouseleave", () => {
+          for (const ee of edgeEls) {
+            ee.line.style.opacity = "";
+            ee.label.style.opacity = "";
+          }
+        });
+        svg.appendChild(g);
+      }
+
+      const wrap = document.createElement("div");
+      wrap.className = "mindmap-scroll";
+      wrap.appendChild(svg);
+      container.appendChild(wrap);
+    }
+
+    async function generateRelations(btn, statusEl, nodes, outlineLines, container) {
+      const key = apiKeyInput.value.trim();
+      if (!key) {
+        // 用户此刻在导图页签里，提示必须写在他眼前，不能只写去设置区
+        statusEl.textContent = "🕸 生成关系图需要先到「⚙️ AI 设置」粘贴 API Key";
+        statusEl.classList.add("error");
+        return;
+      }
+      const nodeNames = nodes.map((n) => n.text);
+      btn.disabled = true;
+      statusEl.classList.remove("error");
+      statusEl.textContent = "🕸 正在分析知识点之间的依赖与关联……约需 20-60 秒";
+      try {
+        const model = modelInput.value.trim() || "glm-5";
+        const res = await fetch(API_BASE + "/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key,
+          },
+          body: JSON.stringify({
+            model: model,
+            temperature: 0.4,
+            messages: [
+              { role: "system", content: "你是学习路径设计师。根据给定的知识框架，找出知识点之间的学习依赖与关联关系（先学什么才好学什么、哪些概念互相对比、哪些引出哪些）。" },
+              { role: "user", content: "知识点列表：" + nodeNames.join("、") + "\n\n知识框架大纲：\n" + outlineLines.join("\n") + "\n\n请输出 6-12 条知识点关系，每行严格使用格式：A -> B | 关系说明\n其中关系说明 2-8 个字（如「先学」「引出」「对比」「应用于」），A 和 B 必须从知识点列表中逐字选取。只输出关系行，不要任何解释。" },
+            ],
+          }),
+        });
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("API Key 无效");
+          throw new Error("接口返回 " + res.status);
+        }
+        const data = await res.json();
+        const answer = data.choices?.[0]?.message?.content || "";
+        const edges = parseRelations(answer, nodeNames);
+        if (edges.length < 2) throw new Error("AI 没有返回有效的关系，可再试一次");
+        renderRelationGraph(container, edges);
+        const cap = document.createElement("div");
+        cap.className = "map-caption";
+        cap.textContent = "🕸 知识点关系图（箭头 = 学习方向，悬浮节点高亮相关连线，可左右拖动）";
+        container.insertBefore(cap, container.querySelector(".rel-svg-wrap"));
+        btn.hidden = true;
+        statusEl.textContent = "";
+      } catch (err) {
+        statusEl.textContent = "🕸 关系图生成失败：" + err.message;
+        statusEl.classList.add("error");
+        btn.disabled = false;
+      }
+    }
+
+    // ================= 示意图：CogView 为重点块并行生图 =================
+    illuBtn.addEventListener("click", async () => {
+      const key = apiKeyInput.value.trim();
+      if (!key) { setSettingsStatus("生成示意图也需要先填 API Key", "error"); return; }
+      const kps = [...resultBox.querySelectorAll(".kp")].slice(0, 3);
+      if (!kps.length) return;
+      illuBtn.disabled = true;
+      illuBtn.textContent = "生成中……";
+
+      await Promise.all(kps.map(async (kp) => {
+        const titleEl = kp.querySelector(".kp-title");
+        const topic = (titleEl?.textContent || "").replace(/^◆\s*(?:重点：|重点:)?\s*/, "");
+        if (!topic) return;
+        const ph = document.createElement("div");
+        ph.className = "img-loading";
+        ph.textContent = "🎨 正在为「" + topic + "」生成示意图，约需 10-30 秒……";
+        kp.appendChild(ph);
+        try {
+          const res = await fetch(API_BASE + "/images/generations", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + key,
+            },
+            body: JSON.stringify({
+              model: IMAGE_MODEL,
+              prompt: "大学" + currentSubject.name + "课程教学示意图，画面简洁准确，白色背景，包含清晰的中文标注文字，教学风格，无水印无装饰杂物：" + topic,
+              size: "1024x1024",
+            }),
+          });
+          if (!res.ok) {
+            if (res.status === 401) throw new Error("API Key 无效");
+            throw new Error("接口返回 " + res.status);
+          }
+          const data = await res.json();
+          const url = data.data?.[0]?.url;
+          if (!url) throw new Error("没有返回图片地址");
+          const img = document.createElement("img");
+          img.className = "illus";
+          img.src = url;
+          img.alt = topic + " 示意图";
+          ph.replaceWith(img);
+        } catch (err) {
+          ph.textContent = "🎨「" + topic + "」示意图生成失败：" + err.message;
+          ph.classList.add("error");
+        }
+      }));
+
+      illuBtn.disabled = false;
+      illuBtn.textContent = "🎨 生成重难点示意图";
+    });
+
+    // ════════════════════════════════════════════════════════════
+    // 错题本模块区（由四个智能体并行开发、集成者汇总接线）
+    // ════════════════════════════════════════════════════════════
+
+    // ---------- Agent B：视觉识别 + AI 分析（只发请求，不碰 DOM） ----------
+    // 视觉模型：glm-4.6v-flash 是免费档；识别效果不够可换 "glm-4.6v" 或平台更新的视觉模型
+    const VISION_MODEL = "glm-4.6v-flash";
+
+    async function callChatBody(body) {
+      const key = apiKeyInput.value.trim();
+      if (!key) {
+        throw new Error("请先在设置区填写 API Key");
+      }
+      let res;
+      try {
+        res = await fetch(API_BASE + "/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key
+          },
+          body: JSON.stringify(body)
+        });
+      } catch (err) {
+        if (err instanceof TypeError && String(err.message).includes("fetch")) {
+          throw new Error("网络请求失败，请检查网络");
+        }
+        throw err;
+      }
+      if (res.status === 401) {
+        throw new Error("API Key 无效或已过期，请回设置区检查");
+      }
+      if (!res.ok) {
+        let msg = "接口返回了 " + res.status;
+        try {
+          const errData = await res.json();
+          if (errData && errData.error && errData.error.message) msg = errData.error.message;
+        } catch (e) { /* 响应体不是 JSON，就用兜底文案 */ }
+        throw new Error(msg);
+      }
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        throw new Error("AI 返回了空内容，请再试一次");
+      }
+      const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!content || !String(content).trim()) {
+        throw new Error("AI 返回了空内容，请再试一次");
+      }
+      return String(content).trim();
+    }
+
+    const MistakeVision = {
+      async recognize(dataURL) {
+        const instruction = [
+          "请把图片中的题目原样转写成纯文本，严格遵守：",
+          "1. 精确转写图片中的全部题目文字，包括大题题干、小题序号、选项（A、B、C、D 等）、图注和表格内容，不要遗漏、不要改写；",
+          "2. 数学式用普通文本书写，例如：x²、√2、∫f(x)dx、a₁、x/(x+1)、y=2x+1，不要输出 LaTeX 代码；",
+          "3. 按图片原始版式换行：题干、小题、每个选项各占一行，保持从上到下的阅读顺序；",
+          "4. 只输出题目本身，不要解题、不要分析、不要任何额外说明；",
+          "5. 看不清或不确定的字，在对应位置用〔?〕标注，例如「求〔?〕的值」。"
+        ].join("\n");
+        return await callChatBody({
+          model: VISION_MODEL,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: dataURL } },
+              { type: "text", text: instruction }
+            ]
+          }]
+        });
+      }
+    };
+
+    const MistakeAnalysis = {
+      async analyze(questionText) {
+        const systemPrompt = [
+          "你是大学错题分析助教，对用户给出的错题做简练分析。固定输出以下四部分，每部分以【】标题开头：",
+          "【考察考点】列出 2-4 个考点，每条一句话；",
+          "【解题思路】分步说明，但每步不超过两句话，抓住关键转折；",
+          "【答案与关键步骤】给出最终答案，以及最关键的一两步推导；",
+          "【易错提醒】单独一行，以「！易错：」开头，指出最容易栽的坑。",
+          "全文记号规范：最关键的结论用 ==双等号== 包裹；专业术语用 **双星号** 包裹；解题技巧单独一行，以「★ 技巧：」开头。",
+          "只依据题目本身分析，不要假设题目之外的条件；公式一律用普通文本（如 x²、√2、∫f(x)dx）；全程使用中文。"
+        ].join("\n");
+        const text = String(questionText || "").slice(0, 6000);
+        if (!text.trim()) {
+          throw new Error("题目内容为空，无法分析");
+        }
+        const model = modelInput.value.trim() || "glm-5";
+        return await callChatBody({
+          model: model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: "【学科】" + currentSubject.name + "\n\n题目：\n" + text }
+          ],
+          temperature: 0.4
+        });
+      }
+    };
+
+    // ---------- Agent A：拍摄裁剪 ----------
+    const MistakeCapture = (() => {
+      let els = null;
+      let stream = null;
+      let sourceImg = null;
+      let selStart = null;
+      let selEnd = null;
+      let dragging = false;
+      let hasSelection = false;
+      let croppedDataUrl = null;
+      let displayScale = 1;
+      const MIN_DRAG = 40;
+
+      function _ready() {
+        if (!els) { console.warn("[MistakeCapture] 请先调用 MistakeCapture.init(container)"); return false; }
+        return true;
+      }
+
+      function _setStatus(text) { els.status.textContent = text; }
+
+      function _show(mode) {
+        els.entry.hidden = mode !== "entry";
+        els.camera.hidden = mode !== "camera";
+        els.crop.hidden = mode !== "crop";
+        els.preview.hidden = mode !== "preview";
+      }
+
+      function _stopCamera() {
+        if (stream) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+        }
+        if (els && els.video) els.video.srcObject = null;
+      }
+
+      function _getSelRect() {
+        if (!selStart || !selEnd) return null;
+        return {
+          x: Math.min(selStart.x, selEnd.x),
+          y: Math.min(selStart.y, selEnd.y),
+          w: Math.abs(selStart.x - selEnd.x),
+          h: Math.abs(selStart.y - selEnd.y),
+        };
+      }
+
+      function _toImagePx(e) {
+        const rect = els.canvas.getBoundingClientRect();
+        const x = Math.min(Math.max((e.clientX - rect.left) / displayScale, 0), els.canvas.width);
+        const y = Math.min(Math.max((e.clientY - rect.top) / displayScale, 0), els.canvas.height);
+        return { x, y };
+      }
+
+      function _renderCrop() {
+        if (!sourceImg) return;
+        const c = els.canvas;
+        const ctx = c.getContext("2d");
+        ctx.drawImage(sourceImg, 0, 0, c.width, c.height);
+        const r = _getSelRect();
+        if (!r || r.w === 0 || r.h === 0 || (!dragging && !hasSelection)) return;
+        ctx.fillStyle = "rgba(15, 23, 42, 0.55)";
+        ctx.beginPath();
+        ctx.rect(0, 0, c.width, c.height);
+        ctx.rect(r.x, r.y, r.w, r.h);
+        ctx.fill("evenodd");
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = Math.max(2, 2 * displayScale);
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+      }
+
+      function _fitCanvas() {
+        if (!sourceImg) return;
+        const c = els.canvas;
+        c.width = sourceImg.naturalWidth;
+        c.height = sourceImg.naturalHeight;
+        const wrapW = els.wrap.clientWidth || els.container.clientWidth || 320;
+        const dispW = Math.min(wrapW, sourceImg.naturalWidth);
+        c.style.width = dispW + "px";
+        c.style.height = "auto";
+        displayScale = sourceImg.naturalWidth / dispW;
+        _renderCrop();
+      }
+
+      function _enterCrop(img) {
+        _stopCamera();
+        sourceImg = img;
+        selStart = selEnd = null;
+        dragging = false;
+        hasSelection = false;
+        croppedDataUrl = null;
+        els.confirmBtn.disabled = true;
+        _show("crop");
+        _fitCanvas();
+        _setStatus("✍️ 按住拖动框选题目区域，松手时至少 40px 才有效");
+      }
+
+      function _confirmCrop() {
+        const r = hasSelection ? _getSelRect() : null;
+        if (!r) { _setStatus("✋ 请先在图上框选一个区域"); return; }
+        const zoom = Math.min(1, 1000 / Math.max(r.w, r.h));
+        const outW = Math.max(1, Math.round(r.w * zoom));
+        const outH = Math.max(1, Math.round(r.h * zoom));
+        const out = document.createElement("canvas");
+        out.width = outW;
+        out.height = outH;
+        out.getContext("2d").drawImage(sourceImg, r.x, r.y, r.w, r.h, 0, 0, outW, outH);
+        croppedDataUrl = out.toDataURL("image/jpeg", 0.7);
+        els.previewImg.src = croppedDataUrl;
+        _show("preview");
+        _setStatus("✅ 裁剪完成！识别或分析时会使用这张图");
+      }
+
+      function _bindEvents() {
+        els.openBtn.addEventListener("click", open);
+        els.albumBtn.addEventListener("click", () => els.fileInput.click());
+        els.fileInput.addEventListener("change", () => {
+          const file = els.fileInput.files && els.fileInput.files[0];
+          if (file) loadFromFile(file);
+          els.fileInput.value = "";
+        });
+        els.shootBtn.addEventListener("click", shoot);
+        els.closeBtn.addEventListener("click", reset);
+        els.confirmBtn.addEventListener("click", _confirmCrop);
+        els.retakeBtn.addEventListener("click", reset);
+        els.resetBtn.addEventListener("click", reset);
+
+        els.canvas.addEventListener("pointerdown", (e) => {
+          if (dragging) return;
+          e.preventDefault();
+          try {
+            els.canvas.setPointerCapture(e.pointerId);
+          } catch (_) { /* 指针已失效时忽略 */ }
+          dragging = true;
+          hasSelection = false;
+          els.confirmBtn.disabled = true;
+          selStart = selEnd = _toImagePx(e);
+          _renderCrop();
+        });
+        els.canvas.addEventListener("pointermove", (e) => {
+          if (!dragging) return;
+          selEnd = _toImagePx(e);
+          _renderCrop();
+        });
+        const finishDrag = (e) => {
+          if (!dragging) return;
+          dragging = false;
+          selEnd = _toImagePx(e);
+          const r = _getSelRect();
+          const dispW = r.w / displayScale;
+          const dispH = r.h / displayScale;
+          if (dispW >= MIN_DRAG && dispH >= MIN_DRAG) {
+            hasSelection = true;
+            els.confirmBtn.disabled = false;
+            _setStatus("✅ 已框选 " + Math.round(r.w) + "×" + Math.round(r.h) + "，点「✂️ 确认裁剪」");
+          } else {
+            selStart = selEnd = null;
+            _setStatus("✋ 选区太小啦，请框得再大一点");
+          }
+          _renderCrop();
+        };
+        els.canvas.addEventListener("pointerup", finishDrag);
+        els.canvas.addEventListener("pointercancel", finishDrag);
+        window.addEventListener("resize", () => { if (!els.crop.hidden) _fitCanvas(); });
+      }
+
+      function init(container) {
+        if (!container) { console.warn("[MistakeCapture] init 需要传入挂载容器元素"); return false; }
+        if (els) return true;
+        const q = (id) => container.querySelector("#" + id);
+        els = {
+          container: container,
+          status: q("mistake-cam-status"),
+          entry: q("mistake-cam-entry"),
+          openBtn: q("mistake-cam-open"),
+          albumBtn: q("mistake-cam-album"),
+          fileInput: q("mistake-cam-file"),
+          camera: q("mistake-cam-camera"),
+          video: q("mistake-cam-video"),
+          shootBtn: q("mistake-cam-shoot"),
+          closeBtn: q("mistake-cam-close"),
+          crop: q("mistake-cam-crop"),
+          wrap: q("mistake-cam-wrap"),
+          canvas: q("mistake-cam-canvas"),
+          confirmBtn: q("mistake-cam-confirm"),
+          retakeBtn: q("mistake-cam-retake"),
+          preview: q("mistake-cam-preview"),
+          previewImg: q("mistake-cam-preview-img"),
+          resetBtn: q("mistake-cam-reset"),
+        };
+        if (!els.status || !els.canvas || !els.video || !els.fileInput) {
+          els = null;
+          console.warn("[MistakeCapture] 缺少模块必需的元素");
+          return false;
+        }
+        _bindEvents();
+        _show("entry");
+        _setStatus("👆 点击下方按钮，拍照或从相册选择错题图片");
+        return true;
+      }
+
+      async function open() {
+        if (!_ready()) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          _setStatus("📵 当前环境不支持摄像头，可以用「🖼 从相册选择」代替");
+          return;
+        }
+        if (stream) return;
+        els.openBtn.disabled = true;
+        try {
+          _setStatus("⏳ 正在打开摄像头…");
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false,
+          });
+          els.video.srcObject = stream;
+          els.video.play().catch(() => {});
+          _show("camera");
+          _setStatus("🎥 对准错题，点「📷 拍照」");
+        } catch (err) {
+          _stopCamera();
+          const reason = (err && err.name === "NotAllowedError") ? "摄像头权限被拒绝"
+            : (err && err.name === "NotFoundError") ? "没有找到可用的摄像头"
+            : "";
+          _setStatus(reason
+            ? "📷 " + reason + "，可以用「🖼 从相册选择」代替"
+            : "📷 摄像头不可用，可以用「🖼 从相册选择」代替");
+        } finally {
+          els.openBtn.disabled = false;
+        }
+      }
+
+      function shoot() {
+        if (!_ready()) return;
+        const v = els.video;
+        if (!stream || !v.videoWidth) {
+          _setStatus("⏳ 摄像头还没出画面，等一下再拍");
+          return;
+        }
+        const frame = document.createElement("canvas");
+        frame.width = v.videoWidth;
+        frame.height = v.videoHeight;
+        frame.getContext("2d").drawImage(v, 0, 0);
+        const img = new Image();
+        img.onload = () => _enterCrop(img);
+        img.onerror = () => _setStatus("😢 照片数据出错了，请重新拍一张");
+        img.src = frame.toDataURL("image/jpeg", 0.92);
+      }
+
+      function loadFromFile(file) {
+        if (!_ready() || !file) return;
+        if (file.type && !file.type.startsWith("image/")) {
+          _setStatus("⚠️ 这好像不是图片文件，换一张试试");
+          return;
+        }
+        _setStatus("⏳ 正在读取图片…");
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => _enterCrop(img);
+          img.onerror = () => _setStatus("😢 这张图读不出来，换一张试试");
+          img.src = reader.result;
+        };
+        reader.onerror = () => _setStatus("😢 图片读取失败，再试一次");
+        reader.readAsDataURL(file);
+      }
+
+      function getLastImage() {
+        return croppedDataUrl || null;
+      }
+
+      function reset() {
+        _stopCamera();
+        sourceImg = null;
+        selStart = selEnd = null;
+        dragging = false;
+        hasSelection = false;
+        croppedDataUrl = null;
+        if (!els) return;
+        els.canvas.getContext("2d").clearRect(0, 0, els.canvas.width, els.canvas.height);
+        els.previewImg.removeAttribute("src");
+        els.confirmBtn.disabled = true;
+        els.fileInput.value = "";
+        _show("entry");
+        _setStatus("👆 点击下方按钮，拍照或从相册选择错题图片");
+      }
+
+      return { init, open, shoot, loadFromFile, getLastImage, reset };
+    })();
+
+    // ---------- Agent C：选中拖拽联网搜索 + 通俗拓展 ----------
+    let _zoneErrorTimer = null;
+    let _webExpandBusy = false;
+
+    function _getZone() {
+      return document.getElementById("drag-search-zone");
+    }
+
+    function _showZone(text) {
+      const zone = _getZone();
+      if (!zone) return;
+      if (_zoneErrorTimer) { clearTimeout(_zoneErrorTimer); _zoneErrorTimer = null; }
+      zone.classList.remove("drag-error");
+      if (text) zone.textContent = text;
+      zone.hidden = false;
+    }
+
+    function _hideZone() {
+      const zone = _getZone();
+      if (zone) zone.hidden = true;
+    }
+
+    function _flashZone(text, ms, isError) {
+      const zone = _getZone();
+      if (!zone) return;
+      if (_zoneErrorTimer) clearTimeout(_zoneErrorTimer);
+      zone.classList.toggle("drag-error", !!isError);
+      zone.textContent = text;
+      zone.hidden = false;
+      _zoneErrorTimer = setTimeout(() => {
+        zone.classList.remove("drag-error");
+        zone.hidden = true;
+        _zoneErrorTimer = null;
+      }, ms);
+    }
+
+    async function callChat(messages, opts) {
+      opts = opts || {};
+      const key = apiKeyInput.value.trim();
+      if (!key) throw new Error("请先在设置区填写 API Key");
+      const body = {
+        model: modelInput.value.trim() || "glm-5",
+        messages: messages,
+      };
+      if (opts.needSearch) {
+        body.tools = [{ type: "web_search", web_search: { enable: true } }];
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90 * 1000);
+      let resp;
+      try {
+        resp = await fetch(API_BASE + "/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + key,
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        throw new Error("网络错误或请求超时，请检查网络后重试");
+      }
+      clearTimeout(timer);
+      if (!resp.ok) {
+        if (resp.status === 401) throw new Error("API Key 无效或已过期");
+        let detail = "HTTP " + resp.status;
+        try {
+          const errData = await resp.json();
+          if (errData && errData.error && errData.error.message) detail = errData.error.message;
+        } catch (_) { /* 忽略 */ }
+        throw new Error("请求失败：" + detail);
+      }
+      const data = await resp.json();
+      if (data && data.error) {
+        throw new Error("接口返回错误：" + (data.error.message || "未知错误"));
+      }
+      const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!content) throw new Error("AI 没有返回内容，请稍后重试");
+      return content;
+    }
+
+    const DragSearch = {
+      _inited: false,
+      init(sourceEl) {
+        if (!sourceEl || DragSearch._inited) return;
+        DragSearch._inited = true;
+        sourceEl.addEventListener("dragstart", (e) => {
+          const selected = window.getSelection().toString();
+          if (!selected.trim()) return;
+          e.dataTransfer.setData("text/plain", selected);
+          e.dataTransfer.effectAllowed = "copy";
+          _showZone("🔍 松开手指，联网搜索");
+        });
+        sourceEl.addEventListener("dragend", () => _hideZone());
+        const zone = _getZone();
+        if (!zone) return;
+        zone.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          zone.classList.add("drag-over");
+        });
+        zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+        zone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          zone.classList.remove("drag-over");
+          const text = (e.dataTransfer.getData("text/plain") || "").trim();
+          _hideZone();
+          if (text) WebExpand.search(text).catch(() => {});
+        });
+        zone.addEventListener("click", () => {
+          if (_webExpandBusy) return;
+          const selected = window.getSelection().toString().trim();
+          if (!selected) {
+            _flashZone("☝️ 请先在分析内容里选中一段文字", 2500, false);
+            return;
+          }
+          WebExpand.search(selected).catch(() => {});
+        });
+      },
+    };
+
+    const WebExpand = {
+      async search(text) {
+        const question = (text || "").trim();
+        if (!question) return;
+        if (_webExpandBusy) return;
+        _webExpandBusy = true;
+        try {
+          if (!apiKeyInput.value.trim()) throw new Error("请先在设置区填写 API Key");
+          _showZone("🔍 正在联网搜索……");
+          const subject = (typeof currentSubject !== "undefined" && currentSubject && currentSubject.name)
+            ? currentSubject.name
+            : "通用";
+          const clipped = question.length > 500 ? question.slice(0, 500) + "…" : question;
+          const messages = [
+            {
+              role: "system",
+              content:
+                "你是通俗拓展讲解员。针对用户给出的概念或问题，结合联网搜索到的资料，输出详细但通俗易懂的拓展讲解。" +
+                "要求：① 多用生活类比和具体例子，避免堆砌术语，术语第一次出现时用一句话顺带解释它是什么；" +
+                "② 固定以【拓展知识点】开头，之后分 3-5 个要点，每个要点单独一段；" +
+                "③ 使用记号规范：最关键的结论用 ==双等号== 包裹，专业名词用 **双星号** 包裹，实用建议用「★ 技巧：」开头；" +
+                "④ 全程使用中文。",
+            },
+            { role: "user", content: "【" + subject + "】" + clipped },
+          ];
+          const answer = await callChat(messages, { needSearch: true });
+          const output = document.getElementById("mistake-analysis-output");
+          if (!output) throw new Error("找不到分析结果区域");
+          if (typeof renderRichInto !== "function") {
+            throw new Error("渲染函数 renderRichInto 未就绪");
+          }
+          const title = document.createElement("div");
+          title.className = "expansion-title";
+          title.textContent = "🌐 拓展知识点（AI 联网整理）";
+          output.appendChild(title);
+          renderRichInto(output, answer);
+          mistakeExpansions.push(answer); // 拓展原文入队，收入错题本时会一并保存
+          title.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          _hideZone();
+        } catch (err) {
+          _flashZone("⚠️ " + ((err && err.message) || "搜索失败，请稍后重试"), 3000, true);
+          throw err;
+        } finally {
+          _webExpandBusy = false;
+        }
+      },
+    };
+
+    // ---------- Agent D：大栏目导航 + 错题本数据层 ----------
+    const SECTION_KEY = "fuxi.section";
+
+    const SECTION_NAMES = { review: "review-app", mistake: "mistake-app", library: "library-app" };
+
+    function showSection(id) {
+      for (const key of Object.keys(SECTION_NAMES)) {
+        const el = document.getElementById(SECTION_NAMES[key]);
+        if (el) el.hidden = key !== id;
+      }
+      document.querySelectorAll("#section-bar .section-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.section === id);
+      });
+      try { localStorage.setItem(SECTION_KEY, id); } catch (e) { /* 忽略 */ }
+      try { if (id === "mistake") renderMistakeList(); } catch (e) { /* 忽略 */ }
+      try { if (id === "library") renderLibrary(); } catch (e) { /* 忽略 */ }
+      try { if (id === "review") renderDashboard(); } catch (e) { /* 忽略 */ }
+    }
+
+    function initSectionBar() {
+      let saved = "review";
+      try { saved = localStorage.getItem(SECTION_KEY) || "review"; } catch (e) {}
+      showSection(SECTION_NAMES[saved] ? saved : "review");
+      document.querySelectorAll("#section-bar .section-btn").forEach((b) => {
+        b.addEventListener("click", () => showSection(b.dataset.section));
+      });
+    }
+
+    function _mistakeEl(tag, cls, text) {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text !== undefined && text !== null) node.textContent = text;
+      return node;
+    }
+
+    const MistakeStore = {
+      KEY: "fuxi.mistakes",
+      MAX: 20,
+
+      _load() {
+        try {
+          const raw = localStorage.getItem(this.KEY);
+          const arr = raw ? JSON.parse(raw) : [];
+          return Array.isArray(arr) ? arr : [];
+        } catch (e) { return []; }
+      },
+
+      _write(list) {
+        try { localStorage.setItem(this.KEY, JSON.stringify(list)); return true; }
+        catch (e) { return false; }
+      },
+
+      _writeShrunk(list) {
+        if (this._write(list)) return true;
+        for (let i = list.length - 1; i >= 0; i--) {
+          if (list[i].image) {
+            list[i].image = null;
+            if (this._write(list)) return true;
+          }
+        }
+        while (list.length > 1) {
+          list.pop();
+          if (this._write(list)) return true;
+        }
+        return false;
+      },
+
+      save(entry) {
+        const list = this._load();
+        const full = Object.assign({}, entry, {
+          id: "mk" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          t: Date.now()
+        });
+        list.unshift(full);
+        if (list.length > this.MAX) {
+          for (let i = list.length - 1; i >= 1; i--) { list[i].image = null; }
+          while (list.length > this.MAX) { list.pop(); }
+        }
+        this._writeShrunk(list);
+        return full;
+      },
+
+      list() { return this._load(); },
+
+      get(id) {
+        const hit = this._load().find((m) => m.id === id);
+        return hit || null;
+      },
+
+      remove(id) {
+        const rest = this._load().filter((m) => m.id !== id);
+        this._write(rest);
+        this.renderMistakeList();
+      },
+
+      bumpStats() {
+        try {
+          stats.mistakes = (stats.mistakes || 0) + 1;
+          saveStats();
+          renderStats();
+        } catch (e) { /* 档案还没扩展好时静默跳过 */ }
+      },
+
+      onItemClick: null,
+
+      renderMistakeList(container) {
+        const box = container || document.getElementById("mistake-list");
+        if (!box) return;
+        const items = this.list();
+        box.textContent = "";
+        if (items.length === 0) {
+          box.appendChild(_mistakeEl("div", "mistake-empty", "错题本还是空的，拍下或粘贴你的第一道错题吧！"));
+          return;
+        }
+        items.forEach((entry) => {
+          const row = _mistakeEl("div", "mistake-item");
+          if (entry.image) {
+            const img = document.createElement("img");
+            img.className = "mistake-thumb";
+            img.src = entry.image;
+            img.alt = "错题缩略图";
+            row.appendChild(img);
+          }
+          row.appendChild(_mistakeEl("span", "mistake-emoji", entry.emoji || "📘"));
+          const main = _mistakeEl("div", "mistake-item-main");
+          const chars = Array.from(String(entry.question || "(无题目文字)").replace(/\s+/g, " ").trim());
+          main.appendChild(_mistakeEl("div", "mistake-item-question", chars.length > 40 ? chars.slice(0, 40).join("") + "…" : chars.join("")));
+          main.appendChild(_mistakeEl("div", "mistake-item-date", this._fmtDate(entry.t)));
+          row.appendChild(main);
+          const del = _mistakeEl("button", "mistake-del", "🗑");
+          del.type = "button";
+          del.title = "删除这条错题";
+          del.addEventListener("click", (e) => {
+            e.stopPropagation();
+            MistakeStore.remove(entry.id);
+          });
+          row.appendChild(del);
+          row.addEventListener("click", () => {
+            if (typeof MistakeStore.onItemClick === "function") MistakeStore.onItemClick(entry);
+          });
+          box.appendChild(row);
+        });
+      },
+
+      _fmtDate(t) {
+        const d = new Date(t || Date.now());
+        const p = (n) => (n < 10 ? "0" + n : String(n));
+        return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+      }
+    };
+
+    function renderMistakeList(container) { return MistakeStore.renderMistakeList(container); }
+    initSectionBar();
+    renderMistakeList();
+
+    // ---------- 资料库：复习/错题自动归档 + 导入导出 + 拖动排序 ----------
+    const LibraryStore = {
+      KEY: "fuxi.library",
+      ORDER_KEY: "fuxi.libraryOrder",
+      MAX: 200,
+
+      _load() {
+        try {
+          const arr = JSON.parse(localStorage.getItem(this.KEY));
+          return Array.isArray(arr) ? arr : [];
+        } catch { return []; }
+      },
+
+      _write(items) {
+        try { localStorage.setItem(this.KEY, JSON.stringify(items)); return true; }
+        catch (e) { return false; }
+      },
+
+      _loadOrder() {
+        try {
+          const arr = JSON.parse(localStorage.getItem(this.ORDER_KEY));
+          return Array.isArray(arr) ? arr : [];
+        } catch { return []; }
+      },
+
+      _saveOrder(order) {
+        try { localStorage.setItem(this.ORDER_KEY, JSON.stringify(order)); } catch (e) { /* 忽略 */ }
+      },
+
+      // 归档一条（生成复习材料 / 收入错题时自动调用），按 id 去重
+      add(item) {
+        const items = this._load();
+        if (items.some((i) => i.id === item.id)) return;
+        items.unshift(item);
+        while (items.length > this.MAX) items.pop();
+        this._write(items);
+      },
+
+      // 导入合并：按 id 去重，按时间重排；返回新增条数
+      addMany(list) {
+        const items = this._load();
+        const ids = new Set(items.map((i) => i.id));
+        let added = 0;
+        for (const item of list) {
+          if (!item || !item.id || !item.text || ids.has(item.id)) continue;
+          items.unshift({
+            id: String(item.id),
+            type: item.type === "mistake" ? "mistake" : "review",
+            t: Number(item.t) || Date.now(),
+            subjectId: item.subjectId || "",
+            name: item.name || "未知学科",
+            emoji: item.emoji || "📘",
+            text: String(item.text),
+          });
+          ids.add(item.id);
+          added++;
+        }
+        if (added) {
+          items.sort((a, b) => b.t - a.t);
+          while (items.length > this.MAX) items.pop();
+          this._write(items);
+          this._saveOrder(this._loadOrder().filter((id) => ids.has(id)));
+        }
+        return added;
+      },
+
+      remove(id) {
+        this._write(this._load().filter((i) => i.id !== id));
+        this._saveOrder(this._loadOrder().filter((x) => x !== id));
+        // 资料库增强扩展：条目删除后同步清理它的标签记录，避免留下孤儿数据
+        try { if (typeof LibraryTags !== "undefined") LibraryTags.removeAll(id); } catch (e) { /* 忽略 */ }
+      },
+
+      // 按用户拖出来的顺序返回；没排过序的按时间新在前
+      ordered() {
+        const items = this._load();
+        const order = this._loadOrder();
+        const byId = new Map(items.map((i) => [i.id, i]));
+        const out = [];
+        for (const id of order) {
+          if (byId.has(id)) { out.push(byId.get(id)); byId.delete(id); }
+        }
+        const rest = [...byId.values()].sort((a, b) => b.t - a.t);
+        return out.concat(rest);
+      },
+
+      moveTo(id, targetId) {
+        if (id === targetId) return;
+        const ordered = this.ordered().map((i) => i.id);
+        const from = ordered.indexOf(id);
+        const to = ordered.indexOf(targetId);
+        if (from < 0 || to < 0) return;
+        ordered.splice(to, 0, ordered.splice(from, 1)[0]);
+        this._saveOrder(ordered);
+      },
+
+      moveStep(id, delta) {
+        const ordered = this.ordered().map((i) => i.id);
+        const from = ordered.indexOf(id);
+        const to = from + delta;
+        if (from < 0 || to < 0 || to >= ordered.length) return;
+        ordered.splice(to, 0, ordered.splice(from, 1)[0]);
+        this._saveOrder(ordered);
+      },
+    };
+
+    function libDate(t) {
+      const d = new Date(t || Date.now());
+      const p = (n) => String(n).padStart(2, "0");
+      return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    }
+
+    let draggingLibraryId = null;
+
+    // ═══════ 资料库增强（Agent 1）：标签 / 批量操作 / 排序模式 ═══════
+    // renderLibrary 每次全量重绘会丢状态，所以展开/勾选/标签编辑状态
+    // 全部保存在这些模块级变量里，重绘后逐卡恢复。
+    let libOpenIds = new Set();      // 处于展开状态的条目 id
+    let libBatchMode = false;        // 是否处于批量管理模式
+    let libCheckedIds = new Set();   // 批量模式下勾选的条目 id
+    let libTagEditingId = null;      // 正在编辑标签的条目 id（null = 没有）
+    let libTagFilter = null;         // 当前标签筛选（null = 不筛选，字符串 = 只看带该标签的条目）
+    let libSortMode = "custom";      // 排序模式：custom / new / old / type
+    let libShownIds = [];            // 本次渲染实际显示的条目 id（「全选」只作用于可见条目）
+
+    const LIBX_TAGS_KEY = "fuxi.libraryTags"; // 标签持久化：{ 条目id: [标签, …] }
+    const LIBX_SORT_KEY = "fuxi.librarySort"; // 排序模式持久化
+    const LIBX_SORT_LABELS = { custom: "✋ 自定义", new: "🕐 最新优先", old: "🕐 最早优先", type: "📑 按类型" };
+
+    // 标签数据层：增删改全部即时写入 localStorage
+    const LibraryTags = {
+      _load() {
+        try {
+          const obj = JSON.parse(localStorage.getItem(LIBX_TAGS_KEY));
+          return (obj && typeof obj === "object" && !Array.isArray(obj)) ? obj : {};
+        } catch (e) { return {}; }
+      },
+      _save(map) {
+        try { localStorage.setItem(LIBX_TAGS_KEY, JSON.stringify(map)); } catch (e) { /* 存不下就算了 */ }
+      },
+      get(id) { return this._load()[id] || []; },
+      // 去空、去重后整体写入；空数组则删键
+      set(id, tags) {
+        const map = this._load();
+        const clean = [...new Set(tags.map((t) => String(t).trim()).filter(Boolean))];
+        if (clean.length) map[id] = clean; else delete map[id];
+        this._save(map);
+      },
+      add(id, tag) {
+        const cur = this.get(id);
+        if (!cur.includes(tag)) cur.push(tag);
+        this.set(id, cur);
+      },
+      remove(id, tag) { this.set(id, this.get(id).filter((t) => t !== tag)); },
+      removeAll(id) { const map = this._load(); delete map[id]; this._save(map); },
+      // 汇总所有标签（带条目数），按出现次数降序
+      allTags() {
+        const map = this._load();
+        const counts = new Map();
+        for (const tags of Object.values(map)) {
+          for (const t of tags) counts.set(t, (counts.get(t) || 0) + 1);
+        }
+        return [...counts.entries()]
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "zh"));
+      },
+    };
+
+    function libLoadSortMode() {
+      try {
+        const v = localStorage.getItem(LIBX_SORT_KEY);
+        return LIBX_SORT_LABELS[v] ? v : "custom";
+      } catch (e) { return "custom"; }
+    }
+    libSortMode = libLoadSortMode();
+
+    // 按当前模式排好条目：custom 模式原样返回拖拽顺序（LibraryStore.ordered()）
+    function libSortedItems() {
+      const items = LibraryStore.ordered();
+      if (libSortMode === "new") return [...items].sort((a, b) => (b.t || 0) - (a.t || 0));
+      if (libSortMode === "old") return [...items].sort((a, b) => (a.t || 0) - (b.t || 0));
+      if (libSortMode === "type") {
+        return [...items].sort((a, b) =>
+          a.type === b.type ? (b.t || 0) - (a.t || 0) : (a.type === "mistake" ? 1 : -1));
+      }
+      return items;
+    }
+
+    // 单张卡的标签行：标签徽章（可删）＋「加标签」入口或行内编辑器
+    function buildLibraryTagRow(item) {
+      const row = document.createElement("div");
+      row.className = "libx-tag-row";
+
+      if (libTagEditingId === item.id) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "libx-tag-input";
+        input.placeholder = "🏷 输入标签名，用空格可一次加多个";
+        const ok = document.createElement("button");
+        ok.type = "button"; ok.className = "libx-tag-ok"; ok.textContent = "✚ 添加";
+        const cancel = document.createElement("button");
+        cancel.type = "button"; cancel.className = "libx-tag-cancel"; cancel.textContent = "取消";
+        const commit = () => {
+          const parts = input.value.split(/[\s,，、;；]+/).map((s) => s.trim()).filter(Boolean);
+          if (parts.length) LibraryTags.set(item.id, LibraryTags.get(item.id).concat(parts));
+          libTagEditingId = null;
+          renderLibrary();
+        };
+        ok.addEventListener("click", (e) => { e.stopPropagation(); commit(); });
+        cancel.addEventListener("click", (e) => { e.stopPropagation(); libTagEditingId = null; renderLibrary(); });
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") { libTagEditingId = null; renderLibrary(); }
+        });
+        row.appendChild(input);
+        row.appendChild(ok);
+        row.appendChild(cancel);
+        setTimeout(() => input.focus(), 0); // 重绘后让输入框立刻可打字
+        return row;
+      }
+
+      const tags = LibraryTags.get(item.id);
+      for (const t of tags) {
+        const chip = document.createElement("span");
+        chip.className = "libx-tag";
+        chip.appendChild(document.createTextNode("🏷 " + t));
+        const x = document.createElement("button");
+        x.type = "button"; x.className = "libx-tag-x"; x.textContent = "×";
+        x.title = "删除标签「" + t + "」";
+        x.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (libTagFilter === t) libTagFilter = null; // 正在按它筛选就一并取消
+          LibraryTags.remove(item.id, t);
+          renderLibrary();
+        });
+        chip.appendChild(x);
+        row.appendChild(chip);
+      }
+      const add = document.createElement("button");
+      add.type = "button"; add.className = "libx-tag-add";
+      add.textContent = tags.length ? "＋🏷" : "＋🏷 加标签";
+      add.title = "给这份资料加标签";
+      add.addEventListener("click", (e) => { e.stopPropagation(); libTagEditingId = item.id; renderLibrary(); });
+      row.appendChild(add);
+      return row;
+    }
+
+    function renderLibrary() {
+      const box = document.getElementById("library-list");
+      if (!box) return;
+      const items = libSortedItems();
+      const idSet = new Set(items.map((i) => i.id));
+      // 状态自愈：条目被删/被导入合并裁掉后，勾选、展开、编辑、标签记录不留垃圾
+      libCheckedIds = new Set([...libCheckedIds].filter((id) => idSet.has(id)));
+      libOpenIds = new Set([...libOpenIds].filter((id) => idSet.has(id)));
+      if (libTagEditingId && !idSet.has(libTagEditingId)) libTagEditingId = null;
+      const tagMap = LibraryTags._load();
+      let tagDirty = false;
+      for (const id of Object.keys(tagMap)) {
+        if (!idSet.has(id)) { delete tagMap[id]; tagDirty = true; }
+      }
+      if (tagDirty) LibraryTags._save(tagMap);
+      // 筛选中的标签若已不存在，自动取消筛选
+      if (libTagFilter && !LibraryTags.allTags().some((t) => t.name === libTagFilter)) libTagFilter = null;
+
+      const kw = (document.getElementById("library-search")?.value || "").trim().toLowerCase();
+      let shown = items;
+      if (libTagFilter) shown = shown.filter((i) => LibraryTags.get(i.id).includes(libTagFilter));
+      if (kw) shown = shown.filter((i) => ((i.name || "") + " " + (i.text || "")).toLowerCase().includes(kw));
+      libShownIds = shown.map((i) => i.id);
+
+      const filterActive = Boolean(kw || libTagFilter);
+      document.getElementById("library-count").textContent = filterActive
+        ? "（匹配 " + shown.length + " / 共 " + items.length + " 份" + (libTagFilter ? " · 🏷" + libTagFilter : "") + "）"
+        : "（" + items.length + " 份，全部存本机）";
+
+      // 排序按钮高亮 + 头部提示文案随模式切换
+      document.querySelectorAll("#library-sort-group .libx-sort-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.sort === libSortMode);
+      });
+      const hint = document.getElementById("library-sort-hint");
+      if (hint) {
+        hint.textContent = libSortMode === "custom"
+          ? "拖 ⠿ 排序，或用 ↑↓"
+          : "已按「" + (LIBX_SORT_LABELS[libSortMode] || libSortMode) + "」排列，点 ✋ 自定义 恢复拖拽顺序";
+      }
+
+      renderLibraryTagChips();
+      updateBatchBar();
+
+      box.textContent = "";
+      if (!shown.length) {
+        box.appendChild(_mistakeEl("div", "mistake-empty", filterActive
+          ? "没有匹配「" + [libTagFilter ? "🏷" + libTagFilter : "", kw].filter(Boolean).join(" · ") + "」的资料"
+          : "资料库还是空的——生成一份复习材料或收入一道错题，就会自动归档到这里"));
+        return;
+      }
+
+      shown.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "library-item";
+        card.dataset.id = item.id;
+
+        const head = document.createElement("div");
+        head.className = "library-item-head";
+
+        // 批量模式：卡头最前面出现勾选框（点击不触发展开）
+        if (libBatchMode) {
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "libx-check";
+          cb.checked = libCheckedIds.has(item.id);
+          cb.title = "选择这份资料";
+          cb.addEventListener("click", (e) => e.stopPropagation());
+          cb.addEventListener("change", () => {
+            if (cb.checked) libCheckedIds.add(item.id); else libCheckedIds.delete(item.id);
+            updateBatchBar();
+          });
+          head.appendChild(cb);
+        }
+
+        // 只有「✋ 自定义」模式才有拖拽手柄和 ↑↓，其他模式排序由模式决定
+        const isCustom = libSortMode === "custom";
+        if (isCustom) {
+          const handle = document.createElement("span");
+          handle.className = "library-tool handle";
+          handle.textContent = "⠿";
+          handle.title = "按住拖到其他模块上排序";
+          head.appendChild(handle);
+          handle.addEventListener("dragstart", (e) => {
+            draggingLibraryId = item.id;
+            card.classList.add("dragging");
+            e.dataTransfer.setData("text/plain", item.id);
+            e.dataTransfer.effectAllowed = "move";
+          });
+          handle.addEventListener("dragend", () => {
+            card.classList.remove("dragging");
+            box.querySelectorAll(".drop-target").forEach((el) => el.classList.remove("drop-target"));
+          });
+          card.addEventListener("dragover", (e) => {
+            if (!draggingLibraryId || draggingLibraryId === item.id) return;
+            e.preventDefault();
+            card.classList.add("drop-target");
+          });
+          card.addEventListener("dragleave", () => card.classList.remove("drop-target"));
+          card.addEventListener("drop", (e) => {
+            e.preventDefault();
+            card.classList.remove("drop-target");
+            if (!draggingLibraryId || draggingLibraryId === item.id) return;
+            LibraryStore.moveTo(draggingLibraryId, item.id);
+            draggingLibraryId = null;
+            renderLibrary();
+          });
+        }
+
+        const badge = document.createElement("span");
+        badge.className = "library-badge " + item.type;
+        badge.textContent = item.type === "mistake" ? "❌ 错题" : "📖 复习";
+        head.appendChild(badge);
+        head.appendChild(_mistakeEl("span", "library-item-title", (item.emoji || "📘") + " " + item.name + " · " + item.text.replace(/\s+/g, " ").trim()));
+        head.appendChild(_mistakeEl("span", "library-item-date", libDate(item.t)));
+        const tools = document.createElement("div");
+        tools.className = "library-item-tools";
+        if (isCustom) {
+          const up = document.createElement("button");
+          up.className = "library-tool"; up.type = "button"; up.textContent = "↑"; up.title = "上移一位";
+          up.addEventListener("click", (e) => { e.stopPropagation(); LibraryStore.moveStep(item.id, -1); renderLibrary(); });
+          const down = document.createElement("button");
+          down.className = "library-tool"; down.type = "button"; down.textContent = "↓"; down.title = "下移一位";
+          down.addEventListener("click", (e) => { e.stopPropagation(); LibraryStore.moveStep(item.id, 1); renderLibrary(); });
+          tools.appendChild(up);
+          tools.appendChild(down);
+        }
+        const del = document.createElement("button");
+        del.className = "library-tool"; del.type = "button"; del.textContent = "🗑"; del.title = "从资料库删除";
+        del.addEventListener("click", (e) => { e.stopPropagation(); LibraryStore.remove(item.id); renderLibrary(); });
+        tools.appendChild(del);
+        head.appendChild(tools);
+        card.appendChild(head);
+
+        card.appendChild(buildLibraryTagRow(item));
+
+        // 正文：重绘后按 libOpenIds 恢复展开状态，内容也要随之重建
+        const isOpen = libOpenIds.has(item.id);
+        const body = document.createElement("div");
+        body.className = "library-item-body" + (isOpen ? " open" : "");
+        if (isOpen) renderRichInto(body, item.text);
+        card.appendChild(body);
+        head.addEventListener("click", (e) => {
+          if (e.target.closest(".library-tool") || e.target.closest(".libx-check")) return;
+          if (libBatchMode) { // 批量模式下点卡片头 = 勾选/取消勾选
+            const cb = head.querySelector(".libx-check");
+            if (cb) cb.click();
+            return;
+          }
+          if (!body.classList.contains("open")) {
+            body.innerHTML = "";
+            renderRichInto(body, item.text);
+            libOpenIds.add(item.id);
+          } else {
+            libOpenIds.delete(item.id);
+          }
+          body.classList.toggle("open");
+        });
+
+        box.appendChild(card);
+      });
+    }
+
+    // 搜索框下方的标签筛选 chips：点击只看带该标签的条目，再点取消
+    function renderLibraryTagChips() {
+      const wrap = document.getElementById("library-tag-chips");
+      if (!wrap) return;
+      const tags = LibraryTags.allTags();
+      if (libTagFilter && !tags.some((t) => t.name === libTagFilter)) libTagFilter = null;
+      if (!tags.length) { wrap.hidden = true; wrap.textContent = ""; return; }
+      wrap.hidden = false;
+      wrap.textContent = "";
+      wrap.appendChild(_mistakeEl("span", "libx-tagfilter-label", "🏷 按标签筛选："));
+      for (const t of tags) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "libx-tagfilter-chip" + (libTagFilter === t.name ? " active" : "");
+        chip.textContent = t.name + " · " + t.count;
+        chip.title = "只看带标签「" + t.name + "」的资料";
+        chip.addEventListener("click", () => {
+          libTagFilter = libTagFilter === t.name ? null : t.name;
+          renderLibrary();
+        });
+        wrap.appendChild(chip);
+      }
+      if (libTagFilter) {
+        const clear = document.createElement("button");
+        clear.type = "button";
+        clear.className = "libx-tagfilter-clear";
+        clear.textContent = "✕ 清除筛选";
+        clear.addEventListener("click", () => { libTagFilter = null; renderLibrary(); });
+        wrap.appendChild(clear);
+      }
+    }
+
+    // 批量管理工具条与开关按钮的 UI 同步（renderLibrary 每次都会调用）
+    function updateBatchBar() {
+      const btn = document.getElementById("library-batch-btn");
+      if (btn) {
+        btn.textContent = libBatchMode ? "✕ 退出批量" : "✓ 批量管理";
+        btn.classList.toggle("active", libBatchMode);
+      }
+      const bar = document.getElementById("library-batch-bar");
+      if (!bar) return;
+      bar.hidden = !libBatchMode;
+      if (!libBatchMode) return;
+      const allSelected = libShownIds.length > 0 && libShownIds.every((id) => libCheckedIds.has(id));
+      const allBtn = document.getElementById("library-batch-all");
+      if (allBtn) allBtn.textContent = allSelected ? "☐ 全不选" : "☑ 全选";
+      const count = document.getElementById("library-batch-count");
+      if (count) count.textContent = "已选 " + libCheckedIds.size + " / 可选 " + libShownIds.length + " 份";
+      const hasSel = libCheckedIds.size > 0;
+      const delBtn = document.getElementById("library-batch-del");
+      if (delBtn) delBtn.disabled = !hasSel;
+      const expBtn = document.getElementById("library-batch-export");
+      if (expBtn) expBtn.disabled = !hasSel;
+    }
+
+    // 批量按钮 / 排序按钮的事件绑定（只需绑一次，集中在这里）
+    function initLibraryEnhancements() {
+      const batchBtn = document.getElementById("library-batch-btn");
+      if (batchBtn) {
+        batchBtn.addEventListener("click", () => {
+          libBatchMode = !libBatchMode;
+          if (!libBatchMode) libCheckedIds.clear(); // 退出批量时清空勾选
+          renderLibrary();
+        });
+      }
+      const allBtn = document.getElementById("library-batch-all");
+      if (allBtn) {
+        allBtn.addEventListener("click", () => {
+          // 全选/全不选只作用于当前筛选后可见的条目
+          const allSelected = libShownIds.length > 0 && libShownIds.every((id) => libCheckedIds.has(id));
+          if (allSelected) libShownIds.forEach((id) => libCheckedIds.delete(id));
+          else libShownIds.forEach((id) => libCheckedIds.add(id));
+          document.querySelectorAll("#library-list .library-item").forEach((card) => {
+            const cb = card.querySelector(".libx-check");
+            if (cb) cb.checked = libCheckedIds.has(card.dataset.id);
+          });
+          updateBatchBar();
+        });
+      }
+      const delBtn = document.getElementById("library-batch-del");
+      if (delBtn) {
+        delBtn.addEventListener("click", () => {
+          const ids = [...libCheckedIds];
+          if (!ids.length) return;
+          if (!confirm("🗑 确定删除所选 " + ids.length + " 份资料？删除后无法恢复！")) return;
+          ids.forEach((id) => LibraryStore.remove(id));
+          libCheckedIds.clear();
+          renderLibrary();
+          setLibraryStatus("🗑 已删除 " + ids.length + " 份资料", false);
+        });
+      }
+      const expBtn = document.getElementById("library-batch-export");
+      if (expBtn) {
+        expBtn.addEventListener("click", () => {
+          // 导出格式与整库导出完全一致，只是 items 换成所选子集
+          const items = LibraryStore.ordered().filter((i) => libCheckedIds.has(i.id));
+          if (!items.length) { setLibraryStatus("请先勾选要导出的资料", true); return; }
+          const payload = { app: "复习神器", version: 1, exportedAt: Date.now(), items: items };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          const d = new Date();
+          const p = (n) => String(n).padStart(2, "0");
+          a.download = "复习神器-资料库-所选" + items.length + "份-" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + ".json";
+          a.click();
+          URL.revokeObjectURL(a.href);
+          setLibraryStatus("✅ 已导出所选 " + items.length + " 份资料到下载目录", false);
+        });
+      }
+      const sortGroup = document.getElementById("library-sort-group");
+      if (sortGroup) {
+        sortGroup.addEventListener("click", (e) => {
+          const b = e.target.closest(".libx-sort-btn");
+          if (!b || b.dataset.sort === libSortMode) return;
+          libSortMode = b.dataset.sort;
+          try { localStorage.setItem(LIBX_SORT_KEY, libSortMode); } catch (err) { /* 忽略 */ }
+          renderLibrary();
+        });
+        // 初始就点亮保存过的排序模式按钮
+        sortGroup.querySelectorAll(".libx-sort-btn").forEach((b) => {
+          b.classList.toggle("active", b.dataset.sort === libSortMode);
+        });
+      }
+    }
+    initLibraryEnhancements();
+
+    function setLibraryStatus(msg, isError) {
+      const el = document.getElementById("library-status");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = isError ? "#dc2626" : "#16a34a";
+    }
+
+    document.getElementById("library-export-btn").addEventListener("click", () => {
+      const items = LibraryStore.ordered();
+      if (!items.length) {
+        setLibraryStatus("资料库还是空的，先去生成一份复习材料或收入一道错题", true);
+        return;
+      }
+      const payload = { app: "复习神器", version: 1, exportedAt: Date.now(), items: items };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      const d = new Date();
+      const p = (n) => String(n).padStart(2, "0");
+      a.download = "复习神器-资料库-" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + ".json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setLibraryStatus("✅ 已导出 " + items.length + " 份资料到下载目录", false);
+    });
+
+    document.getElementById("library-import-btn").addEventListener("click", () => document.getElementById("library-import-file").click());
+    document.getElementById("library-import-file").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const list = Array.isArray(data) ? data : data.items;
+        if (!Array.isArray(list)) throw new Error("文件里没有找到资料条目");
+        const added = LibraryStore.addMany(list);
+        renderLibrary();
+        setLibraryStatus(added ? "✅ 导入完成：新增 " + added + " 份资料（重复的自动跳过）" : "没有新增资料（可能与现有内容重复）", false);
+      } catch (err) {
+        setLibraryStatus("❌ 导入失败：" + err.message, true);
+      }
+    });
+    document.getElementById("library-search").addEventListener("input", renderLibrary);
+
+    // ================= 闪卡复习（fc- 前缀独立模块；唯一数据入口：LibraryStore.ordered() 只读） =================
+    const fcMask = document.getElementById("flashcard-mask");
+    let fcState = null; // { deck, idx, flipped, known, unsure } 仅本次会话统计，不持久化
+
+    function fcFmtDate(t) {
+      const d = new Date(t || Date.now());
+      const p = (n) => String(n).padStart(2, "0");
+      return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    }
+
+    function fcMake(tag, cls, text) {
+      const el = document.createElement(tag);
+      if (cls) el.className = cls;
+      if (text !== undefined && text !== null) el.textContent = text;
+      return el;
+    }
+
+    // 卡面富文本：先 escapeHtml 再渲染 ==高亮==/**强调** 记号（防注入：转义在前）
+    function fcSetMarked(el, text) {
+      el.innerHTML = renderInline(escapeHtml(String(text)));
+    }
+
+    // 抽卡：复习材料解析【核心考点】编号行，错题每条一张（正面题目 / 背面分析）
+    function buildDeck() {
+      const deck = [];
+      const items = LibraryStore.ordered(); // 只读
+      // 第一轮：type === "review" → 【核心考点】小节里每个编号行一张卡
+      for (const item of items) {
+        if (item.type !== "review") continue;
+        const source = (item.emoji || "📘") + " " + (item.name || "未知学科") + " · " + fcFmtDate(item.t);
+        let inKp = false; // 是否正走在【核心考点】小节里（遇到下一个【】标题就结束）
+        for (const rawLine of String(item.text || "").split("\n")) {
+          const line = rawLine.replace(/\r$/, "").trim();
+          const sec = /^【(.+?)】\s*$/.exec(line);
+          if (sec) { inKp = sec[1] === "核心考点"; continue; }
+          if (!inKp || !line) continue;
+          const m = /^(\d+)[.、)]\s*(.+)$/.exec(line);
+          if (m && m[2].trim()) deck.push({ kind: "review", front: m[2].trim(), back: "", source });
+        }
+      }
+      // 第二轮：type === "mistake" → text 格式「题目：…\n\n【AI 分析】\n…」拆成正反面
+      for (const item of items) {
+        if (item.type !== "mistake") continue;
+        const text = String(item.text || "");
+        const cut = text.indexOf("【AI 分析】");
+        const question = (cut >= 0 ? text.slice(0, cut) : text).trim();
+        const analysis = (cut >= 0 ? text.slice(cut + "【AI 分析】".length) : "").trim();
+        if (question) {
+          deck.push({ kind: "mistake", front: question, back: analysis || "（这条错题没有保存到分析）", source: "" });
+        }
+      }
+      return deck;
+    }
+
+    function openFlashcards() {
+      // 3D 能力检测：不支持就加 .fc-no3d 退回两面切换模式
+      const no3d = !(window.CSS && CSS.supports &&
+        (CSS.supports("transform-style", "preserve-3d") || CSS.supports("backface-visibility", "hidden")));
+      fcState = { deck: buildDeck(), idx: 0, flipped: false, known: 0, unsure: 0 };
+      fcMask.classList.toggle("fc-no3d", no3d);
+      fcMask.hidden = false; // 单例弹窗：重复点击只是重开同一个弹窗，不会叠加
+      renderFcStage();
+    }
+
+    function closeFlashcards() {
+      fcMask.hidden = true;
+      fcState = null;
+    }
+
+    function fcCur() {
+      return fcState ? fcState.deck[fcState.idx] : undefined;
+    }
+
+    function flipFlashcard() {
+      if (!fcState || !fcCur()) return;
+      fcState.flipped = !fcState.flipped;
+      document.getElementById("fc-stage").classList.toggle("fc-flipped", fcState.flipped);
+    }
+
+    function gradeFlashcard(remembered) {
+      if (!fcState || !fcCur() || !fcState.flipped) return; // 没翻面不打分
+      if (remembered) fcState.known++; else fcState.unsure++;
+      fcState.idx++;
+      fcState.flipped = false;
+      if (fcState.idx >= fcState.deck.length) renderFcDone();
+      else renderFcStage();
+    }
+
+    function renderFcStage() {
+      const stage = document.getElementById("fc-stage");
+      const prog = document.getElementById("fc-progress");
+      const s = fcState;
+      stage.innerHTML = ""; // 每张卡重建 DOM，翻转状态自然复位
+      stage.classList.remove("fc-flipped");
+
+      // 空态：资料库没有任何可抽内容
+      if (!s.deck.length) {
+        prog.textContent = "";
+        const empty = fcMake("div", "fc-empty");
+        empty.appendChild(fcMake("div", "fc-empty-emoji", "📭"));
+        empty.appendChild(fcMake("div", "fc-empty-text", "资料库还没有可复习的内容，先去生成材料或收入错题"));
+        stage.appendChild(empty);
+        return;
+      }
+      if (s.idx >= s.deck.length) { renderFcDone(); return; }
+
+      const card = s.deck[s.idx];
+      prog.textContent = "第 " + (s.idx + 1) + " / " + s.deck.length + " 张 · ✅ " + s.known + " · ❌ " + s.unsure;
+
+      // 翻转结构：正面在文档流里撑高度，背面 rotateY(180deg) 绝对定位藏在背后
+      const flipper = fcMake("div", "fc-flipper");
+      flipper.title = "点击翻面";
+      const inner = fcMake("div", "fc-flip-inner");
+
+      const front = fcMake("div", "fc-face fc-face-front");
+      front.appendChild(fcMake("div", "fc-face-tag",
+        card.kind === "mistake" ? "❌ 错题 · 想想怎么解" : "🎯 考点 · 回忆它的出处"));
+      const frontText = fcMake("div", "fc-face-text");
+      fcSetMarked(frontText, card.front);
+      front.appendChild(frontText);
+      front.appendChild(fcMake("div", "fc-face-tip", "👆 点击卡面翻面"));
+
+      const back = fcMake("div", "fc-face fc-face-back");
+      if (card.kind === "review") {
+        back.appendChild(fcMake("div", "fc-face-tag", "🗂 来自这份材料"));
+        back.appendChild(fcMake("div", "fc-source", card.source));
+        back.appendChild(fcMake("div", "fc-face-tip", "想起上下文了吗？再点翻回"));
+      } else {
+        back.appendChild(fcMake("div", "fc-face-tag", "💡 AI 分析"));
+        const backText = fcMake("div", "fc-face-text fc-face-analysis");
+        fcSetMarked(backText, card.back);
+        back.appendChild(backText);
+      }
+      inner.appendChild(front);
+      inner.appendChild(back);
+      flipper.appendChild(inner);
+      flipper.addEventListener("click", flipFlashcard);
+      stage.appendChild(flipper);
+
+      // 翻开后才出现的两个评分按钮（CSS 由 .fc-flipped 控制显示）
+      const actions = fcMake("div", "fc-actions");
+      const good = fcMake("button", "fc-btn fc-btn-good", "✅ 记住了");
+      good.type = "button";
+      good.addEventListener("click", () => gradeFlashcard(true));
+      const bad = fcMake("button", "fc-btn fc-btn-bad", "❌ 没记住");
+      bad.type = "button";
+      bad.addEventListener("click", () => gradeFlashcard(false));
+      actions.appendChild(good);
+      actions.appendChild(bad);
+      stage.appendChild(actions);
+    }
+
+    function renderFcDone() {
+      const stage = document.getElementById("fc-stage");
+      const s = fcState;
+      stage.innerHTML = "";
+      stage.classList.remove("fc-flipped");
+      document.getElementById("fc-progress").textContent = "复习完成 🎉";
+
+      const total = s.deck.length;
+      const pct = total ? Math.round((s.known / total) * 100) : 0;
+      const box = fcMake("div", "fc-done");
+      box.appendChild(fcMake("div", "fc-done-title", "🎉 这副闪卡过完啦！"));
+      box.appendChild(fcMake("div", "fc-done-stat",
+        "✅ 记住 " + s.known + " 张 · ❌ 没记住 " + s.unsure + " 张（共 " + total + " 张）"));
+      box.appendChild(fcMake("div", "fc-done-tip",
+        pct >= 80 ? "掌握得很牢，保持这个节奏！" : "没记住的多翻几遍，过几天再来一遍效果最好。"));
+      const btns = fcMake("div", "fc-actions fc-actions-show");
+      const again = fcMake("button", "fc-btn fc-btn-primary", "🔄 再来一遍");
+      again.type = "button";
+      again.addEventListener("click", () => {
+        fcState.idx = 0; fcState.flipped = false; fcState.known = 0; fcState.unsure = 0;
+        renderFcStage();
+      });
+      const quit = fcMake("button", "fc-btn", "👋 退出");
+      quit.type = "button";
+      quit.addEventListener("click", closeFlashcards);
+      btns.appendChild(again);
+      btns.appendChild(quit);
+      box.appendChild(btns);
+      stage.appendChild(box);
+    }
+
+    document.getElementById("flashcard-open-btn").addEventListener("click", openFlashcards);
+    document.getElementById("fc-close-btn").addEventListener("click", closeFlashcards);
+    fcMask.addEventListener("click", (e) => { if (e.target === fcMask) closeFlashcards(); });
+
+    // 键盘：空格/回车 = 翻面，1 = 记住了，2 = 没记住，Esc = 退出（仅弹窗打开时生效）
+    document.addEventListener("keydown", (e) => {
+      if (fcMask.hidden || !fcState) return;
+      if (e.key === "Escape") { closeFlashcards(); return; }
+      if (!fcCur()) return; // 空态 / 总结页只响应 Esc
+      const onBtn = e.target instanceof Element && e.target.closest("#flashcard-mask button");
+      if (!onBtn && (e.key === " " || e.key === "Enter")) { e.preventDefault(); flipFlashcard(); }
+      else if (e.key === "1" && fcState.flipped) gradeFlashcard(true);
+      else if (e.key === "2" && fcState.flipped) gradeFlashcard(false);
+    });
+
+    // ---------- 集成接线：错题本按钮 → 模块 → 渲染 ----------
+    const mistakeQuestion = document.getElementById("mistake-question");
+    const mistakeOutput = document.getElementById("mistake-analysis-output");
+    const recognizeBtn = document.getElementById("mistake-recognize-btn");
+    const analyzeBtn = document.getElementById("mistake-analyze-btn");
+    const saveMistakeBtn = document.getElementById("mistake-save-btn");
+    let lastAnalysisRaw = "";
+    let mistakeExpansions = []; // 拖拽联网搜索得到的拓展原文，随错题一起保存、一起恢复
+
+    MistakeCapture.init(document.getElementById("mistake-capture-card"));
+    DragSearch.init(mistakeOutput);
+
+    recognizeBtn.addEventListener("click", async () => {
+      const image = MistakeCapture.getLastImage();
+      if (!image) {
+        setSettingsStatus("请先在上方拍照并裁剪一张错题图片", "error");
+        return;
+      }
+      recognizeBtn.disabled = true;
+      recognizeBtn.textContent = "🔍 识别中……";
+      try {
+        mistakeQuestion.value = await MistakeVision.recognize(image);
+        setSettingsStatus("✅ 识别完成，请核对题目文字（看不清处标了〔?〕）", "ok");
+      } catch (err) {
+        setSettingsStatus(err.message, "error");
+      } finally {
+        recognizeBtn.disabled = false;
+        recognizeBtn.textContent = "🔍 识别图片文字";
+      }
+    });
+
+    analyzeBtn.addEventListener("click", async () => {
+      const question = mistakeQuestion.value.trim();
+      if (!question) {
+        setSettingsStatus("请先输入题目，或先拍照识别", "error");
+        mistakeQuestion.focus();
+        return;
+      }
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = "🧠 正在分析……";
+      mistakeOutput.innerHTML = "";
+      const loading = document.createElement("div");
+      loading.className = "loading-box";
+      loading.innerHTML = '<div class="spinner"></div>';
+      const hint = document.createElement("div");
+      hint.textContent = "AI 正在分析这道错题……";
+      loading.appendChild(hint);
+      mistakeOutput.appendChild(loading);
+      try {
+        mistakeExpansions = []; // 新分析开始，上一题的拓展清空，避免串味
+        lastAnalysisRaw = await MistakeAnalysis.analyze(question);
+        mistakeOutput.innerHTML = "";
+        renderRichInto(mistakeOutput, lastAnalysisRaw);
+      } catch (err) {
+        lastAnalysisRaw = "";
+        mistakeOutput.innerHTML = "";
+        const box = document.createElement("div");
+        box.className = "file-status error";
+        box.textContent = "❌ " + err.message;
+        mistakeOutput.appendChild(box);
+      } finally {
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = "🧠 分析此题";
+      }
+    });
+
+    saveMistakeBtn.addEventListener("click", () => {
+      const question = mistakeQuestion.value.trim();
+      // 分析 + 拓展一起入库：拓展是拖拽搜来的真实价值，不能丢
+      const parts = [lastAnalysisRaw].concat(mistakeExpansions).filter(Boolean);
+      const analysis = parts.join("\n\n");
+      if (!question || !analysis) {
+        setSettingsStatus("题目和分析都有了才能收入错题本", "error");
+        return;
+      }
+      MistakeStore.save({
+        subjectId: currentSubject.id,
+        name: currentSubject.name,
+        emoji: currentSubject.emoji,
+        question: question,
+        analysis: analysis,
+        image: MistakeCapture.getLastImage(),
+      });
+      MistakeStore.bumpStats();
+      LibraryStore.add({
+        id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+        type: "mistake", t: Date.now(),
+        subjectId: currentSubject.id, name: currentSubject.name, emoji: currentSubject.emoji,
+        text: question + "\n\n【AI 分析】\n" + analysis,
+      });
+      renderMistakeList();
+      mistakeExpansions = []; // 已随错题入库，清空队列防止下一题重复携带
+      saveMistakeBtn.textContent = "✅ 已收入错题本";
+      setTimeout(() => { saveMistakeBtn.textContent = "💾 收入错题本"; }, 1500);
+      MistakeCapture.reset();
+    });
+
+    MistakeStore.onItemClick = (entry) => {
+      mistakeQuestion.value = entry.question;
+      mistakeOutput.innerHTML = "";
+      lastAnalysisRaw = entry.analysis;
+      mistakeExpansions = []; // 拓展已包含在保存的分析全文里
+      renderRichInto(mistakeOutput, entry.analysis);
+    };
+
+    if (!("DecompressionStream" in window)) {
+      setStatus("当前浏览器版本太旧，不支持解压 PPTX，请换新版 Edge 或 Chrome", "error");
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 学习仪表盘（Agent 2）：7 天时长条形图 + 总览四格 + 最常用学科
+    // 只读依赖：stats / todayKey() / calcStreak() / localStorage("fuxi.library")
+    // 不修改任何现有函数；集成者在 showSection("review") 与 stats 变化处调用 renderDashboard()
+    // ════════════════════════════════════════════════════════════
+    const DASH_OPEN_KEY = "fuxi.dashboardOpen";
+    const DASH_WEEK = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    const dashReduceMotion = !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    let dashForceAnimate = true; // 首次渲染/每次展开时重播柱子入场动画
+    let dashSig = "";            // 已渲染的 7 天日期键签名（跨天时才刷新标签）
+
+    // ---- 私有辅助：格式化 ----
+    function dashFmtClock(secs) {
+      // 精确到秒：悬浮提示用，如「3 分 20 秒」「45 秒」
+      if (secs < 60) return secs + " 秒";
+      return Math.floor(secs / 60) + " 分 " + (secs % 60) + " 秒";
+    }
+    function dashFmtShort(secs) {
+      // 头部摘要用：与顶部 stats-bar 同口径（分钟取整）
+      return secs >= 60 ? Math.round(secs / 60) + " 分钟" : secs + " 秒";
+    }
+    function dashFmtTotal(secs) {
+      // 总时长：小时 + 分钟
+      let h = Math.floor(secs / 3600);
+      let m = Math.round((secs % 3600) / 60);
+      if (m === 60) { h++; m = 0; }
+      return h > 0 ? h + " 小时 " + m + " 分钟" : m + " 分钟";
+    }
+    function dashDayLabel(key, offset) {
+      // offset 0=今天 1=昨天，其余显示周几；从日期键反解星期，跨月/跨年都正确
+      if (offset === 0) return "今天";
+      if (offset === 1) return "昨天";
+      const p = key.split("-");
+      const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      return DASH_WEEK[d.getDay()];
+    }
+    function dashIsOpen() {
+      try { return localStorage.getItem(DASH_OPEN_KEY) === "1"; } catch (e) { return false; }
+    }
+
+    // ---- 私有辅助：一次性搭建 DOM（7 根柱子预建，之后渲染只改高度/文字） ----
+    const dashEls = {};
+    (function dashInit() {
+      const card = document.getElementById("dashboard-card");
+      if (!card) return; // 卡片尚未插入时静默跳过
+      dashEls.head = card.querySelector("#dash-head");
+      dashEls.summary = card.querySelector("#dash-summary");
+      dashEls.body = card.querySelector("#dash-body");
+      dashEls.chart = card.querySelector("#dash-chart");
+      dashEls.chartEmpty = card.querySelector("#dash-chart-empty");
+      dashEls.total = card.querySelector("#dash-total");
+      dashEls.days = card.querySelector("#dash-days");
+      dashEls.quiz = card.querySelector("#dash-quiz");
+      dashEls.mistake = card.querySelector("#dash-mistake");
+      dashEls.subject = card.querySelector("#dash-subject");
+
+      // 预建 7 根柱子：6 天前在左、今天在最右
+      dashEls.cols = [];
+      for (let i = 6; i >= 0; i--) {
+        const col = document.createElement("div");
+        col.className = "dash-col";
+        const wrap = document.createElement("div");
+        wrap.className = "dash-bar-wrap";
+        const bar = document.createElement("div");
+        bar.className = "dash-bar";
+        bar.style.height = "2px";
+        wrap.appendChild(bar);
+        const day = document.createElement("div");
+        day.className = "dash-day";
+        col.appendChild(wrap);
+        col.appendChild(day);
+        dashEls.chart.appendChild(col);
+        dashEls.cols.push({ col, bar, day });
+      }
+
+      // 展开状态恢复：存 localStorage，默认收起
+      const open = dashIsOpen();
+      dashEls.body.hidden = !open;
+      dashEls.head.setAttribute("aria-expanded", String(open));
+      dashEls.head.addEventListener("click", () => {
+        const willOpen = dashEls.body.hidden;
+        dashEls.body.hidden = !willOpen;
+        dashEls.head.setAttribute("aria-expanded", String(willOpen));
+        try { localStorage.setItem(DASH_OPEN_KEY, willOpen ? "1" : "0"); } catch (e) { /* 忽略 */ }
+        dashForceAnimate = willOpen; // 每次展开重播入场动画
+        renderDashboard();
+      });
+    })();
+
+    // ---- 私有辅助：条形图 ----
+    function dashRenderChart(animate) {
+      // 日期序列：今天往前推 7 天，键与 todayKey() 完全一致（本地时区，跨月正确）
+      const days = [];
+      for (let i = 6; i >= 0; i--) days.push({ offset: i, key: todayKey(i) });
+      const secs = days.map((d) => Number(stats.byDay[d.key]) || 0);
+      const maxSec = Math.max.apply(null, secs);
+
+      const sig = days.map((d) => d.key).join("|");
+      if (sig !== dashSig) {
+        days.forEach((d, i) => {
+          dashEls.cols[i].day.textContent = dashDayLabel(d.key, d.offset);
+          dashEls.cols[i].col.classList.toggle("dash-today", d.offset === 0);
+        });
+        dashSig = sig;
+      }
+
+      days.forEach((d, i) => {
+        const bar = dashEls.cols[i].bar;
+        const v = secs[i];
+        if (v > 0) {
+          const tip = "⏱ " + dashFmtClock(v);
+          bar.classList.remove("dash-empty-day");
+          bar.setAttribute("data-tip", tip);
+          bar.title = tip; // 触屏设备的兜底提示
+          bar.style.height = Math.max(5, Math.min(110, Math.round((v / maxSec) * 110))) + "px";
+        } else {
+          bar.classList.add("dash-empty-day");
+          bar.removeAttribute("data-tip");
+          bar.removeAttribute("title");
+          bar.style.height = "2px"; // 无数据：2px 灰色底柱
+        }
+      });
+
+      dashEls.chartEmpty.hidden = maxSec > 0;
+
+      // 入场动画：先无过渡压到 2px，回流落定后逐根弹起（尊重减少动画偏好）
+      if (animate && !dashReduceMotion) {
+        const seq = dashEls.cols.map((c) => ({ bar: c.bar, target: c.bar.style.height }));
+        seq.forEach((s) => { s.bar.style.transitionDuration = "0s"; s.bar.style.height = "2px"; });
+        void dashEls.chart.offsetWidth; // 强制回流，避免从旧高度可见地缩下去
+        seq.forEach((s, i) => {
+          s.bar.style.transitionDuration = "";
+          s.bar.style.transitionDelay = (i * 45) + "ms";
+          s.bar.style.height = s.target;
+        });
+        setTimeout(() => { seq.forEach((s) => { s.bar.style.transitionDelay = "0ms"; }); }, 1000);
+      }
+    }
+
+    // ---- 私有辅助：总览四格 ----
+    function dashRenderOverview() {
+      const byDay = stats.byDay || {};
+      let totalSecs = 0;
+      let dayCount = 0;
+      for (const k of Object.keys(byDay)) {
+        const v = Number(byDay[k]) || 0;
+        if (v > 0) { totalSecs += v; dayCount++; }
+      }
+      dashEls.total.textContent = totalSecs > 0 ? dashFmtTotal(totalSecs) : "🌱 还没开始";
+      dashEls.days.textContent = dayCount > 0 ? dayCount + " 天" : "📅 还没打卡";
+      if (stats.quizTotal > 0) {
+        const pct = Math.round((stats.quizCorrect / stats.quizTotal) * 100); // quizTotal>0 才进这里，无 0 除
+        dashEls.quiz.textContent = pct + "%";
+        dashEls.quiz.title = "答对 " + stats.quizCorrect + " / " + stats.quizTotal + " 题";
+      } else {
+        dashEls.quiz.textContent = "还没测过";
+        dashEls.quiz.title = "";
+      }
+      dashEls.mistake.textContent = (stats.mistakes || 0) > 0 ? stats.mistakes + " 道" : "🎉 零错题";
+    }
+
+    // ---- 私有辅助：最常用学科（只读 localStorage "fuxi.library"） ----
+    function dashRenderSubject() {
+      let items = [];
+      try {
+        const arr = JSON.parse(localStorage.getItem("fuxi.library"));
+        if (Array.isArray(arr)) items = arr;
+      } catch (e) { /* 数据损坏按空处理 */ }
+      if (!items.length) {
+        dashEls.subject.textContent = "📦 还没有归档资料";
+        dashEls.subject.classList.add("dash-none");
+        return;
+      }
+      const counter = new Map(); // name → { emoji, count }
+      for (const it of items) {
+        const name = (it && it.name) || "未知学科";
+        const emoji = (it && it.emoji) || "📘";
+        const hit = counter.get(name);
+        if (hit) hit.count++;
+        else counter.set(name, { emoji, count: 1 });
+      }
+      let top = null;
+      for (const entry of counter) {
+        if (!top || entry[1].count > top[1].count) top = entry;
+      }
+      dashEls.subject.textContent = top[1].emoji + " " + top[0] + " · " + top[1].count + " 份";
+      dashEls.subject.classList.remove("dash-none");
+    }
+
+    // ---- 对外入口：全局刷新仪表盘（收起时只刷新头部摘要，代价极低） ----
+    function renderDashboard() {
+      if (!dashEls.head) return;
+      const todaySecs = Number(stats.byDay && stats.byDay[todayKey()]) || 0;
+      let streak = 0;
+      try { if (typeof calcStreak === "function") streak = calcStreak(); } catch (e) { /* 忽略 */ }
+      dashEls.summary.textContent = "⏱ 今日 " + dashFmtShort(todaySecs) + " · 🔥 连续 " + streak + " 天";
+      if (dashEls.body.hidden) return; // 收起时不画内部，展开时 click 处理器会触发渲染
+      const animate = dashForceAnimate;
+      dashForceAnimate = false;
+      dashRenderChart(animate);
+      dashRenderOverview();
+      dashRenderSubject();
+    }
+    window.renderDashboard = renderDashboard;
+    renderDashboard(); // 页面载入即渲染（默认收起时只更新头部摘要）
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>复习神器</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 60%, #ecfeff 100%);
+      min-height: 100vh;
+      color: #1e293b;
+      padding: 24px 16px;
+    }
+
+    .app {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    /* 入场动画 + 无障碍 */
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .subject-bar,
+    main .card {
+      animation: rise 0.5s ease-out backwards;
+    }
+
+    .subject-bar { animation-delay: 0.05s; }
+    main .card:nth-of-type(1) { animation-delay: 0.12s; }
+    main .card:nth-of-type(2) { animation-delay: 0.2s; }
+    main .card:nth-of-type(3) { animation-delay: 0.28s; }
+
+    :focus-visible {
+      outline: 2.5px solid #818cf8;
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      letter-spacing: 2px;
+    }
+
+    header h1 .grad {
+      background: linear-gradient(135deg, #4f46e5 20%, #0ea5e9 80%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(30, 41, 59, 0.08);
+      margin-bottom: 20px;
+    }
+
+    .card > label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #334155;
+    }
+
+    .drop-zone {
+      border: 2px dashed #c7d2fe;
+      border-radius: 10px;
+      padding: 26px 16px;
+      text-align: center;
+      font-size: 14px;
+      color: #64748b;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+
+    .drop-zone strong {
+      color: #4f46e5;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragging {
+      border-color: #6366f1;
+      background: #eef2ff;
+    }
+
+    .drop-zone.dragging {
+      animation: pulse-border 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.25); }
+      50% { box-shadow: 0 0 0 7px rgba(99, 102, 241, 0.1); }
+    }
+
+    #drag-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(79, 70, 229, 0.12);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    /* hidden 属性会被上面的 display:flex 覆盖，必须显式压回来 */
+    #drag-overlay[hidden] {
+      display: none;
+    }
+
+    #drag-overlay > div {
+      background: #4f46e5;
+      color: #ffffff;
+      padding: 16px 30px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 12px 30px rgba(79, 70, 229, 0.35);
+    }
+
+    .file-status {
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #64748b;
+    }
+
+    .file-status.ok {
+      color: #16a34a;
+    }
+
+    .file-status.error {
+      color: #dc2626;
+    }
+
+    .or-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0 12px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .or-divider::before,
+    .or-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      border-color: #6366f1;
+    }
+
+    .editor-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .editor-meta .over {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    .text-input {
+      flex: 1;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      min-width: 0;
+    }
+
+    .text-input:focus {
+      border-color: #6366f1;
+    }
+
+    .setting-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .mini-btn {
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 0 14px;
+      font-size: 13px;
+      color: #475569;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .mini-btn:hover {
+      border-color: #6366f1;
+      color: #4f46e5;
+    }
+
+    .mini-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .setting-hint {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+
+    .generate-btn {
+      display: block;
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .generate-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+    }
+
+    .generate-btn:active:not(:disabled) {
+      transform: translateY(0) scale(0.99);
+    }
+
+    .generate-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .subject-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .subject-pill {
+      border: 1.5px solid #e2e8f0;
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      color: #475569;
+      transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+
+    .subject-pill:hover {
+      border-color: #a5b4fc;
+      transform: translateY(-1px);
+    }
+
+    .subject-pill.active {
+      background: #4f46e5;
+      border-color: #4f46e5;
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    }
+
+    .result-head {
+      position: sticky;
+      top: 8px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 6px 0;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(4px);
+      border-radius: 8px;
+    }
+
+    .result-head label {
+      margin-bottom: 0;
+    }
+
+    .result-placeholder {
+      text-align: center;
+      padding: 36px 16px;
+      color: #94a3b8;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .loading-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 36px 16px;
+      color: #6366f1;
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 34px;
+      height: 34px;
+      border: 3.5px solid #e0e7ff;
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ---------- 复习材料的富文本样式 ---------- */
+    .sec-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #1e293b;
+      margin: 18px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #e0e7ff;
+    }
+
+    .sec-title:first-child {
+      margin-top: 0;
+    }
+
+    .para {
+      font-size: 15px;
+      line-height: 1.8;
+      margin: 8px 0;
+    }
+
+    .kp {
+      border-left: 3px solid #6366f1;
+      background: #f5f7ff;
+      border-radius: 0 10px 10px 0;
+      padding: 10px 14px;
+      margin: 12px 0;
+    }
+
+    .kp-title {
+      font-weight: 700;
+      color: #4338ca;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .warn {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 8px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .tip {
+      background: #ecfeff;
+      color: #0e7490;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin: 8px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .list-line {
+      position: relative;
+      padding-left: 1.1em;
+      font-size: 15px;
+      line-height: 1.9;
+    }
+
+    .list-line::before {
+      content: "•";
+      position: absolute;
+      left: 0.15em;
+      color: #94a3b8;
+    }
+
+    .list-line.ordered {
+      padding-left: 0;
+    }
+
+    .list-line.ordered::before {
+      content: none;
+    }
+
+    .lnum {
+      color: #6366f1;
+      font-weight: 700;
+    }
+
+    mark.hl {
+      background: #fef08a;
+      color: #713f12;
+      padding: 0 3px;
+      border-radius: 3px;
+      text-decoration: underline;
+      text-decoration-color: #f59e0b;
+      text-decoration-thickness: 2px;
+    }
+
+    .para strong,
+    .kp-title strong,
+    .list-line strong {
+      color: #4338ca;
+    }
+
+    .illus {
+      width: 100%;
+      border-radius: 10px;
+      margin: 10px 0 4px;
+      border: 1px solid #e2e8f0;
+      display: block;
+      cursor: zoom-in;
+      transition: box-shadow 0.2s;
+    }
+
+    .illus:hover {
+      box-shadow: 0 6px 18px rgba(30, 41, 59, 0.15);
+    }
+
+    .img-loading {
+      font-size: 13px;
+      color: #6366f1;
+      padding: 10px 0;
+    }
+
+    .img-loading.error {
+      color: #dc2626;
+    }
+
+    .map-wrap {
+      margin-top: 20px;
+    }
+
+    .map-caption {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    .mindmap-scroll {
+      overflow-x: auto;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .mindmap-scroll svg g {
+      transition: filter 0.15s;
+    }
+
+    .mindmap-scroll svg g:hover rect {
+      filter: brightness(1.08);
+    }
+
+    .mindmap-scroll svg text {
+      pointer-events: none;
+    }
+
+    .maps-row {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .maps-row .map-block {
+      flex: 1 1 280px;
+      min-width: 260px;
+    }
+
+    .map-tools {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .map-status {
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .map-status.error {
+      color: #dc2626;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    .result-placeholder strong {
+      color: #4338ca;
+    }
+
+    #to-top {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 40;
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: #ffffff;
+      box-shadow: 0 8px 20px rgba(30, 41, 59, 0.18);
+    }
+
+    @keyframes labelPulse {
+      0% { background: #e0e7ff; }
+      100% { background: transparent; }
+    }
+
+    .label-pulse {
+      animation: labelPulse 0.9s ease-out;
+      border-radius: 6px;
+    }
+
+    /* ---------- 学习档案条 / 结果页签 / 自测模式 ---------- */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      font-size: 13px;
+      color: #475569;
+      margin: -8px 0 18px;
+    }
+
+    .result-tabs {
+      display: flex;
+      gap: 4px;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+    }
+
+    .result-tab {
+      flex: 1;
+      border: none;
+      background: none;
+      padding: 8px 6px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      color: #64748b;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .result-tab.active {
+      background: #ffffff;
+      color: #1e293b;
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(30, 41, 59, 0.12);
+    }
+
+    .result-pane[hidden] {
+      display: none;
+    }
+
+    .pane-empty {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 14px;
+      padding: 24px 12px;
+    }
+
+    .quiz-launch {
+      margin-bottom: 14px;
+    }
+
+    .quiz-btn {
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      color: #475569;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .quiz-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .quiz-btn.primary {
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      color: #ffffff;
+      border: none;
+      font-weight: 600;
+    }
+
+    .quiz-btn.primary:hover {
+      opacity: 0.92;
+    }
+
+    .quiz-btn.good {
+      background: #dcfce7;
+      border-color: #86efac;
+      color: #166534;
+      font-weight: 600;
+    }
+
+    .quiz-btn.bad {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #991b1b;
+      font-weight: 600;
+    }
+
+    .quiz-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .quiz-mask[hidden] {
+      display: none;
+    }
+
+    .quiz-card {
+      position: relative;
+      background: #ffffff;
+      border-radius: 16px;
+      max-width: 560px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+      max-height: 82vh;
+      overflow-y: auto;
+    }
+
+    .quiz-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      border: none;
+      background: #f1f5f9;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      color: #64748b;
+      font-size: 14px;
+    }
+
+    .quiz-progress {
+      font-size: 13px;
+      color: #6366f1;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .quiz-q {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.7;
+      color: #1e293b;
+      margin-bottom: 12px;
+      white-space: pre-wrap;
+    }
+
+    .quiz-a {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 4px;
+      line-height: 1.7;
+      font-size: 14px;
+      color: #334155;
+      white-space: pre-wrap;
+    }
+
+    .quiz-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .quiz-btns .quiz-btn {
+      flex: 1;
+      padding: 12px;
+    }
+
+    /* ═══════ 大栏目导航（Agent D）═══════ */
+    .section-bar {
+      display: flex;
+      gap: 4px;
+      width: fit-content;
+      margin: 0 auto 14px;
+      padding: 4px;
+      background: #eef2ff;
+      border-radius: 999px;
+      box-shadow: inset 0 1px 3px rgba(79, 70, 229, 0.12);
+    }
+
+    .section-btn {
+      border: none;
+      background: transparent;
+      font: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      color: #4b5563;
+      padding: 10px 26px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+
+    .section-btn:hover { color: #4f46e5; }
+
+    .section-btn.active {
+      background: #4f46e5;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+    }
+
+    /* ═══════ 错题本（Agent D）═══════ */
+    #mistake-app { display: flex; flex-direction: column; gap: 16px; }
+    #mistake-app[hidden] { display: none; }
+    #review-app[hidden] { display: none; }
+
+    .mistake-card-title { margin: 0 0 12px; font-size: 17px; font-weight: 700; color: #1f2937; }
+
+    .mistake-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 96px;
+      padding: 10px 12px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fafafa;
+      font: inherit;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #111827;
+      resize: vertical;
+    }
+
+    .mistake-textarea:focus {
+      outline: none;
+      border-color: #4f46e5;
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    }
+
+    .mistake-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+    .mistake-btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.05s;
+    }
+
+    .mistake-btn:active { transform: scale(0.98); }
+    .mistake-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .mistake-btn.primary { background: #4f46e5; color: #ffffff; box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3); }
+    .mistake-btn.primary:hover { filter: brightness(1.08); }
+    .mistake-btn.secondary { background: #eef2ff; color: #4f46e5; }
+    .mistake-btn.secondary:hover { filter: brightness(0.97); }
+    #mistake-save-btn { width: 100%; margin-top: 12px; }
+
+    .mistake-hint { margin: 10px 0 0; font-size: 13px; color: #6b7280; line-height: 1.5; }
+
+    .mistake-output {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1.5px dashed #e5e7eb;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #1f2937;
+    }
+
+    .mistake-output:empty::before { content: "分析结果会显示在这里"; color: #9ca3af; }
+
+    #mistake-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+
+    .mistake-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fafafa;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .mistake-item:hover { border-color: #4f46e5; background: #eef2ff; }
+
+    .mistake-thumb {
+      width: 60px; height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+
+    .mistake-emoji { font-size: 24px; flex-shrink: 0; }
+    .mistake-item-main { flex: 1; min-width: 0; }
+
+    .mistake-item-question {
+      font-size: 14px; font-weight: 600; color: #111827;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .mistake-item-date { margin-top: 4px; font-size: 12px; color: #9ca3af; }
+
+    .mistake-del {
+      flex-shrink: 0;
+      border: none;
+      background: transparent;
+      font-size: 16px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      color: #9ca3af;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .mistake-del:hover { background: #fee2e2; color: #dc2626; }
+    .mistake-empty { text-align: center; color: #9ca3af; font-size: 14px; padding: 20px 0; }
+
+    /* ═══════ 资料库（v2.1）═══════ */
+    #library-app { display: flex; flex-direction: column; gap: 16px; }
+    #library-app[hidden] { display: none; }
+
+    .library-item {
+      border: 1.5px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fafafa;
+      margin-bottom: 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .library-item.dragging { opacity: 0.45; border-style: dashed; }
+    .library-item.drop-target { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25); }
+
+    .library-item-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+
+    .library-badge {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+
+    .library-badge.review { background: #e0e7ff; color: #3730a3; }
+    .library-badge.mistake { background: #fee2e2; color: #991b1b; }
+
+    .library-item-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .library-item-date { flex-shrink: 0; font-size: 12px; color: #9ca3af; }
+    .library-item-tools { display: flex; gap: 2px; flex-shrink: 0; }
+
+    .library-tool {
+      border: none;
+      background: none;
+      padding: 4px 7px;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #9ca3af;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .library-tool:hover { background: #e0e7ff; color: #4f46e5; }
+    .library-tool.handle { cursor: grab; font-size: 15px; }
+
+    .library-item-body { display: none; padding: 0 12px 12px; }
+
+    .library-item-body.open {
+      display: block;
+      border-top: 1px dashed #e5e7eb;
+      padding-top: 10px;
+    }
+
+    /* ═══════ 资料库增强（Agent 1）：标签 / 批量操作 / 排序模式 ═══════ */
+    .libx-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+    .libx-sort-group {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      background: #f1f5f9; padding: 4px; border-radius: 10px;
+    }
+
+    .libx-sort-btn {
+      border: none; background: none; font: inherit; font-size: 12px; color: #64748b;
+      padding: 6px 10px; border-radius: 7px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .libx-sort-btn:hover { color: #4f46e5; }
+
+    .libx-sort-btn.active {
+      background: #ffffff; color: #1e293b; font-weight: 700;
+      box-shadow: 0 1px 4px rgba(30, 41, 59, 0.12);
+    }
+
+    .libx-batch-toggle {
+      margin-left: auto;
+      border: 1.5px solid #e2e8f0; background: #ffffff; border-radius: 999px;
+      padding: 6px 14px; font: inherit; font-size: 13px; font-weight: 600; color: #475569;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+
+    .libx-batch-toggle:hover { border-color: #a5b4fc; color: #4f46e5; }
+    .libx-batch-toggle.active { background: #4f46e5; border-color: #4f46e5; color: #ffffff; }
+
+    .libx-batch-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      padding: 10px 12px; margin-bottom: 10px;
+      background: #eef2ff; border: 1.5px dashed #c7d2fe; border-radius: 10px;
+    }
+
+    /* display:flex 会压掉 hidden 属性，必须显式盖回来（同 #drag-overlay 的坑） */
+    .libx-batch-bar[hidden] { display: none; }
+
+    .libx-batch-act {
+      border: 1.5px solid #c7d2fe; background: #ffffff; border-radius: 8px;
+      padding: 7px 12px; font: inherit; font-size: 13px; color: #4338ca; cursor: pointer;
+      transition: filter 0.15s, opacity 0.15s;
+    }
+
+    .libx-batch-act:hover { filter: brightness(0.96); }
+    .libx-batch-act:disabled { opacity: 0.5; cursor: not-allowed; }
+    .libx-batch-act.danger { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+    .libx-batch-count { font-size: 12px; font-weight: 600; color: #4f46e5; }
+
+    .libx-check { width: 17px; height: 17px; accent-color: #4f46e5; cursor: pointer; flex-shrink: 0; }
+
+    .libx-tag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 12px 8px; }
+
+    .libx-tag {
+      display: inline-flex; align-items: center; gap: 2px;
+      background: #e0e7ff; color: #3730a3;
+      font-size: 11px; font-weight: 600; line-height: 1.6;
+      padding: 2px 4px 2px 8px; border-radius: 999px;
+    }
+
+    .libx-tag-x {
+      border: none; background: none; color: #6366f1;
+      font-size: 12px; line-height: 1; padding: 1px 4px;
+      border-radius: 50%; cursor: pointer;
+    }
+
+    .libx-tag-x:hover { background: #c7d2fe; color: #312e81; }
+
+    .libx-tag-add {
+      border: 1.5px dashed #c7d2fe; background: none; color: #6366f1;
+      font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; cursor: pointer;
+    }
+
+    .libx-tag-add:hover { background: #eef2ff; }
+
+    .libx-tag-input {
+      flex: 1; min-width: 120px;
+      border: 1.5px solid #c7d2fe; border-radius: 8px; padding: 4px 8px;
+      font: inherit; font-size: 12px; outline: none;
+    }
+
+    .libx-tag-input:focus { border-color: #6366f1; }
+
+    .libx-tag-ok {
+      border: none; background: #4f46e5; color: #ffffff;
+      font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 8px; cursor: pointer;
+    }
+
+    .libx-tag-cancel {
+      border: none; background: none; color: #94a3b8;
+      font: inherit; font-size: 12px; padding: 4px 6px; cursor: pointer;
+    }
+
+    .libx-tagfilter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+
+    /* 同上：display:flex + hidden 的坑，显式盖回 */
+    .libx-tagfilter[hidden] { display: none; }
+
+    .libx-tagfilter-label { font-size: 12px; color: #94a3b8; }
+
+    .libx-tagfilter-chip {
+      border: 1.5px solid #e2e8f0; background: #ffffff; border-radius: 999px;
+      padding: 4px 12px; font: inherit; font-size: 12px; color: #475569; cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+
+    .libx-tagfilter-chip:hover { border-color: #a5b4fc; }
+
+    .libx-tagfilter-chip.active {
+      background: #4f46e5; border-color: #4f46e5; color: #ffffff; font-weight: 600;
+    }
+
+    .libx-tagfilter-clear {
+      border: none; background: none; color: #dc2626;
+      font: inherit; font-size: 12px; padding: 4px 6px; cursor: pointer;
+    }
+
+    /* ═══════ 拍摄裁剪（Agent A）═══════ */
+    .mistake-cam-status {
+      margin: 0 0 12px; padding: 8px 12px;
+      font-size: 14px; line-height: 1.5; color: #475569;
+      background: #f1f5f9; border-radius: 10px;
+    }
+
+    .mistake-cam-section[hidden] { display: none; }
+    .mistake-cam-entry { display: flex; flex-wrap: wrap; gap: 12px; }
+    .mistake-cam-file { display: none; }
+
+    .mistake-cam-video {
+      display: block; width: 100%; border-radius: 12px;
+      background: #0f172a;
+    }
+
+    .mistake-cam-wrap { width: 100%; }
+
+    .mistake-cam-canvas {
+      display: block; touch-action: none; cursor: crosshair;
+      max-width: 100%; border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.15);
+      -webkit-user-select: none; user-select: none;
+    }
+
+    .mistake-cam-tip { margin: 8px 0; font-size: 13px; line-height: 1.6; color: #64748b; }
+    .mistake-cam-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+
+    .mistake-cam-btn {
+      padding: 10px 20px; border: none; border-radius: 999px;
+      font-size: 15px; font-weight: 600; color: #ffffff;
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+      cursor: pointer; transition: transform 0.1s, opacity 0.15s;
+    }
+
+    .mistake-cam-btn:active { transform: scale(0.96); }
+    .mistake-cam-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .mistake-cam-btn-ghost { background: #eef2ff; color: #4f46e5; }
+    .mistake-cam-btn-shoot { padding: 12px 28px; font-size: 16px; }
+
+    .mistake-cam-preview-img {
+      display: block; max-width: 100%; margin: 4px auto;
+      border: 2px solid #e0e7ff; border-radius: 12px;
+    }
+
+    /* ═══════ 拖拽搜索投放区（Agent C）═══════ */
+    #drag-search-zone {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 55;
+      max-width: 240px;
+      padding: 12px 20px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #0891b2, #0ea5e9);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(8, 145, 178, 0.45);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      animation: drag-zone-breath 1.6s ease-in-out infinite;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    #drag-search-zone[hidden] { display: none; }
+
+    #drag-search-zone.drag-over {
+      transform: scale(1.15);
+      box-shadow: 0 12px 32px rgba(14, 165, 233, 0.65);
+      animation: none;
+    }
+
+    #drag-search-zone.drag-error {
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+      box-shadow: 0 8px 24px rgba(220, 38, 38, 0.45);
+      animation: none;
+    }
+
+    @keyframes drag-zone-breath {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+
+    .expansion-title {
+      margin: 18px 0 6px;
+      padding: 8px 14px;
+      border-left: 4px solid #0891b2;
+      background: rgba(8, 145, 178, 0.08);
+      border-radius: 8px;
+      color: #0e7490;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    /* ---------- 答案折叠区与历史记录 ---------- */
+    details.answers {
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      margin: 16px 0;
+      background: #f8fafc;
+    }
+
+    details.answers summary {
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 15px;
+      padding: 12px 14px;
+      color: #1e293b;
+      user-select: none;
+      list-style: none;
+    }
+
+    details.answers summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.answers summary::before {
+      content: "▸ ";
+      color: #6366f1;
+    }
+
+    details.answers[open] summary::before {
+      content: "▾ ";
+    }
+
+    details.answers .answers-body {
+      padding: 2px 14px 12px;
+    }
+
+    .history {
+      position: relative;
+    }
+
+    .history summary {
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .history summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .history-list {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(30, 41, 59, 0.12);
+      min-width: 250px;
+      max-height: 280px;
+      overflow-y: auto;
+      z-index: 20;
+      padding: 6px;
+    }
+
+    .hist-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: none;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    .hist-item:hover {
+      background: #eef2ff;
+    }
+
+    .hist-empty {
+      padding: 10px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    .hist-clear {
+      width: 100%;
+      border: none;
+      background: none;
+      color: #dc2626;
+      font-size: 12px;
+      padding: 6px;
+      cursor: pointer;
+    }
+
+    /* ---------- 打印 / 存 PDF：只留复习材料本身 ---------- */
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      .subject-bar,
+      #input-card,
+      #ai-settings,
+      footer,
+      .result-head {
+        display: none !important;
+      }
+
+      .app {
+        max-width: none;
+      }
+
+      .card {
+        box-shadow: none;
+        border: 1px solid #e2e8f0;
+        margin: 0 0 12px;
+      }
+
+      .mindmap-scroll {
+        overflow: visible;
+      }
+    }
+
+    /* ═══════ 学习仪表盘（Agent 2）═══════ */
+    #dashboard-card { padding: 0; } /* 头部自管内边距，整行可点 */
+
+    .dash-head {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 20px;
+      border: none; background: none; font: inherit;
+      text-align: left; color: #1e293b;
+      cursor: pointer; border-radius: 16px;
+      transition: background 0.15s;
+    }
+    .dash-head:hover { background: #f8fafc; }
+    .dash-head:hover .dash-title { color: #4f46e5; }
+    .dash-title { font-size: 15px; font-weight: 700; white-space: nowrap; }
+    .dash-summary {
+      flex: 1; min-width: 0;
+      font-size: 13px; color: #64748b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dash-chevron { flex-shrink: 0; font-size: 13px; color: #94a3b8; transition: transform 0.25s; }
+    .dash-head[aria-expanded="true"] .dash-chevron { transform: rotate(90deg); }
+
+    .dash-body { padding: 0 20px 18px; }
+    .dash-body[hidden] { display: none; } /* 保险：即使未来改成 flex 也不会失效 */
+
+    .dash-block-title { font-size: 13px; font-weight: 600; color: #475569; margin: 4px 0 10px; }
+
+    /* ---- 7 天条形图 ---- */
+    .dash-chart { display: flex; align-items: flex-end; gap: 8px; }
+    .dash-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .dash-bar-wrap { height: 110px; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+    .dash-bar {
+      position: relative;
+      width: 62%; max-width: 34px; min-width: 14px; min-height: 5px;
+      border-radius: 7px 7px 3px 3px;
+      background: linear-gradient(180deg, #818cf8, #22d3ee);
+      transition: height 0.6s cubic-bezier(0.22, 1, 0.36, 1); /* 入场/更新都用高度过渡 */
+    }
+    .dash-col.dash-today .dash-bar {
+      background: linear-gradient(180deg, #4f46e5, #06b6d4);
+      box-shadow: 0 3px 10px rgba(79, 70, 229, 0.35);
+    }
+    .dash-bar.dash-empty-day { min-height: 2px; background: #e2e8f0; box-shadow: none; } /* 无数据：2px 灰底柱 */
+    .dash-day { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+    .dash-col.dash-today .dash-day { color: #4f46e5; font-weight: 700; }
+
+    /* 柱上悬浮的精确分钟数 */
+    .dash-bar::after {
+      content: attr(data-tip);
+      position: absolute; left: 50%; bottom: calc(100% + 6px);
+      transform: translateX(-50%) translateY(2px);
+      padding: 3px 8px;
+      background: #1e293b; color: #ffffff;
+      font-size: 11px; line-height: 1.4;
+      border-radius: 6px; white-space: nowrap;
+      opacity: 0; pointer-events: none; z-index: 6;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .dash-bar:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---- 总览四格 ---- */
+    .dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+    .dash-cell { background: #f8fafc; border-radius: 10px; padding: 10px 6px; text-align: center; min-width: 0; }
+    .dash-cell-value { font-size: 14px; font-weight: 700; color: #4f46e5; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dash-cell-label { margin-top: 2px; font-size: 11px; color: #94a3b8; }
+    @media (max-width: 560px) { .dash-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ---- 最常用学科 ---- */
+    .dash-subject-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; }
+    .dash-subject-label { color: #64748b; flex-shrink: 0; }
+    .dash-subject {
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: #0e7490; font-weight: 600;
+      background: #ecfeff; border-radius: 999px; padding: 4px 12px;
+    }
+    .dash-subject.dash-none { background: none; padding: 4px 0; color: #94a3b8; font-weight: 400; } /* 空态不带胶囊底色 */
+
+    /* 减少动画偏好：页面已有全局兜底，这里再显式声明一次双保险 */
+    @media (prefers-reduced-motion: reduce) {
+      .dash-bar, .dash-bar::after, .dash-chevron, .dash-head { transition: none !important; }
+    }
+
+    /* 打印只留复习材料本身：仪表盘一并隐藏 */
+    @media print {
+      #dashboard-card { display: none !important; }
+    }
+
+    /* ═══════ 闪卡复习（fc- 前缀，独立于自测弹窗）═══════ */
+    .fc-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    /* hidden 属性会被上面的 display:flex 覆盖，必须显式压回来 */
+    #flashcard-mask[hidden] {
+      display: none;
+    }
+
+    .fc-card {
+      position: relative;
+      background: #ffffff;
+      border-radius: 16px;
+      max-width: 560px;
+      width: 100%;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+      max-height: 86vh;
+      overflow-y: auto;
+    }
+
+    .fc-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      border: none;
+      background: #f1f5f9;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      color: #64748b;
+      font-size: 14px;
+      z-index: 2;
+    }
+
+    .fc-progress {
+      font-size: 13px;
+      color: #6366f1;
+      font-weight: 600;
+      margin-bottom: 12px;
+      min-height: 1em;
+    }
+
+    /* ---- 3D 翻转卡 ---- */
+    .fc-flipper {
+      perspective: 1200px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .fc-flip-inner {
+      position: relative;
+      transition: transform 0.45s;
+      transform-style: preserve-3d;
+    }
+
+    .fc-stage.fc-flipped .fc-flip-inner {
+      transform: rotateY(180deg);
+    }
+
+    .fc-face {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      background: #f8fafc;
+      padding: 18px 16px;
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 正面留在文档流里撑起高度，背面绝对定位盖在背后 */
+    .fc-face-front { position: relative; z-index: 2; }
+
+    .fc-face-back {
+      position: absolute;
+      inset: 0;
+      transform: rotateY(180deg);
+      background: #f5f7ff;
+      border-color: #c7d2fe;
+      overflow-y: auto; /* 长解析在卡内滚动 */
+    }
+
+    .fc-face-tag {
+      font-size: 12px;
+      font-weight: 700;
+      color: #6366f1;
+      margin-bottom: 10px;
+    }
+
+    .fc-face-text {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.8;
+      color: #1e293b;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .fc-face-analysis {
+      font-size: 14px;
+      font-weight: 400;
+      color: #334155;
+    }
+
+    .fc-source {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: #4338ca;
+      background: #eef2ff;
+      border-radius: 10px;
+      padding: 12px;
+      white-space: pre-wrap;
+    }
+
+    .fc-face-tip {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    /* ---- 降级：不支持 3D 翻转时，退回「两面直接切换」---- */
+    .fc-no3d .fc-flip-inner { transform: none !important; }
+    .fc-no3d .fc-face { backface-visibility: visible; -webkit-backface-visibility: visible; }
+    .fc-no3d .fc-face-back { position: static; transform: none; display: none; }
+    .fc-no3d .fc-stage.fc-flipped .fc-face-front { display: none; }
+    .fc-no3d .fc-stage.fc-flipped .fc-face-back { display: flex; }
+
+    /* ---- 评分按钮：翻开后才出现（.fc-flipped 驱动）---- */
+    .fc-actions {
+      display: none;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .fc-actions.fc-actions-show { display: flex; } /* 总结页直接显示 */
+    .fc-stage.fc-flipped .fc-actions { display: flex; }
+
+    .fc-actions .fc-btn { flex: 1; padding: 12px; }
+
+    .fc-btn {
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      color: #475569;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .fc-btn:hover { transform: translateY(-1px); }
+    .fc-btn-good { background: #dcfce7; border-color: #86efac; color: #166534; font-weight: 600; }
+    .fc-btn-bad { background: #fee2e2; border-color: #fca5a5; color: #991b1b; font-weight: 600; }
+    .fc-btn-primary {
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      color: #ffffff;
+      border: none;
+      font-weight: 600;
+    }
+
+    /* ---- 空态与总结页 ---- */
+    .fc-empty, .fc-done { text-align: center; padding: 30px 12px; }
+    .fc-empty-emoji { font-size: 40px; margin-bottom: 10px; }
+    .fc-empty-text { font-size: 14px; color: #94a3b8; line-height: 1.7; }
+    .fc-done-title { font-size: 17px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
+    .fc-done-stat { font-size: 14px; color: #334155; margin-bottom: 6px; }
+    .fc-done-tip { font-size: 13px; color: #64748b; line-height: 1.7; }
   </style>
 </head>
 <body>
